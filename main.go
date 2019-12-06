@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"strings"
 
 	"github.com/gocolly/colly"
@@ -139,41 +140,53 @@ func main() {
 		colly.AllowedDomains("basketball-reference.com", "www.basketball-reference.com", "www.bovada.lv"),
 		// colly.MaxDepth(2),
 		// colly.Async(true),
-		// colly.UserAgent("Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"),
+		colly.UserAgent("Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"),
 	)
+
+	detailCollector := c.Clone()
 
 	// c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 2})
 
 	c.OnRequest(func(r *colly.Request) {
 		log.Println("visiting", r.URL.String())
-	})
-
-	c.OnHTML("p[class=links]", func(e *colly.HTMLElement) {
-		fmt.Println(e.Request.AbsoluteURL(e.ChildAttr("a", "href")))
-		writer.Write([]string{
-			e.Request.AbsoluteURL(e.ChildAttr("a", "href")),
-		})
-		fmt.Println(e.Request.AbsoluteURL(e.ChildAttr("a", "href")))
-	})
-
-	c.OnHTML("body", func(e *colly.HTMLElement) {
-		fmt.Println(e.ChildText("pre"))
+		fmt.Println(r.Body)
 	})
 
 	c.OnHTML("html", func(e *colly.HTMLElement) {
-		fmt.Println("in herr")
+		fmt.Println(e.ChildTexts("body"))
+	})
+	// On every a HTML element which has name attribute call callback
+	c.OnHTML(`a[id]`, func(e *colly.HTMLElement) {
+		// Activate detailCollector if the link contains "coursera.org/learn"
+		courseURL := e.Request.AbsoluteURL(e.Attr("href"))
+		if strings.Index(courseURL, "basketball-reference.com/boxscores/") != -1 {
+			detailCollector.Visit(courseURL)
+		}
+	})
+
+	// c.OnHTML("p[class=links]", func(e *colly.HTMLElement) {
+	// 	fmt.Println(e.Request.AbsoluteURL(e.ChildAttr("a", "href")))
+	// 	writer.Write([]string{
+	// 		e.Request.AbsoluteURL(e.ChildAttr("a", "href")),
+	// 	})
+	// 	fmt.Println(e.Request.AbsoluteURL(e.ChildAttr("a", "href")))
+	// })
+
+	c.OnHTML("html", func(e *colly.HTMLElement) {
+		fmt.Println("html")
 		dat := e.ChildText("body > pre")
-		jsonData := dat[strings.Index(dat, "{") : len(dat)-1]
+		fmt.Println(dat)
+		// jsonData := dat[strings.Index(dat, "{") : len(dat)-1]
 		data := &Sport{}
-		err := json.Unmarshal([]byte(jsonData), data)
+		err := json.Unmarshal([]byte(dat), data)
 		if err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println(data)
 	})
 
-	// c.Visit("https://www.basketball-reference.com/boxscores/")
-	c.Visit("https://www.bovada.lv/services/sports/event/v2/events/A/description/football/nfl")
+	c.Visit("https://www.basketball-reference.com/boxscores/")
+	// c.Visit("https://www.bovada.lv/services/sports/event/v2/events/A/description/football/nfl")
 
 	log.Println(c)
 }
