@@ -17,10 +17,15 @@ type Row struct {
 	GameID     int
 	aTeam      string
 	hTeam      string
+	NumMarkets int
 	aML        float64
 	hML        float64
+	aPS        float64
+	hPS        float64
+	aHC        float64
+	hHC        float64
+	gameStart  int
 	LastMod    int
-	NumMarkets int
 }
 
 func makeRow(e Event) Row {
@@ -45,15 +50,31 @@ func makeRow(e Event) Row {
 
 	aML, _ := strconv.ParseFloat(mainMkts["Moneyline"].Outcomes[0].Price.Decimal, 64)
 	hML, _ := strconv.ParseFloat(mainMkts["Moneyline"].Outcomes[1].Price.Decimal, 64)
+
+	aPS, _ := strconv.ParseFloat(mainMkts["Point Spread"].Outcomes[0].Price.Decimal, 64)
+	hPS, _ := strconv.ParseFloat(mainMkts["Point Spread"].Outcomes[1].Price.Decimal, 64)
+
+	aHC, _ := strconv.ParseFloat(mainMkts["Point Spread"].Outcomes[0].Price.Handicap, 64)
+	hHC, _ := strconv.ParseFloat(mainMkts["Point Spread"].Outcomes[1].Price.Handicap, 64)
+
 	r.aML = aML
 	r.hML = hML
+
+	r.aPS = aPS
+	r.hPS = hPS
+
+	r.aHC = aHC
+	r.hHC = hHC
+
 	r.LastMod = e.LastModified
+	r.gameStart = e.StartTime
 	r.NumMarkets = e.NumMarkets
+
 	return r
 }
 
 func getMainMarkets(m []Market) map[string]Market {
-	ret :=  make(map[string]Market)
+	ret := make(map[string]Market)
 	n := len(m)
 	for i := 0; i < n; i++ {
 		if m[i].Period.Main {
@@ -74,7 +95,20 @@ func setAH(cs [2]Competitor) [2]string {
 	return [2]string{a, h}
 }
 
-func main() {
+func getRows(b []byte) []Row {
+	data := toJSON(b)
+	var rs []Row
+	compEvents := data[0].Events
+	numEvents := len(compEvents)
+
+	for i := 0; i < numEvents; i++ {
+		r := makeRow(compEvents[i])
+		rs = append(rs, r)
+	}
+	return rs
+}
+
+func getSport(s string) []Row {
 	res, err := http.Get("https://www.bovada.lv/services/sports/event/v2/events/A/description/football/nfl")
 	if err != nil {
 		fmt.Println("1")
@@ -88,35 +122,31 @@ func main() {
 		log.Fatal(err)
 	}
 
-	data := toJSON(ret)
+	rs := getRows(ret)
+	// w := csv.NewWriter(os.Stdout)
 
-	compEvents := data[0].Events
-	numEvents := len(compEvents)
-	// var rs []Row
+}
 
-	// for i := 0; i < len(compEvents); i++ {
-	// 	game := compEvents[i]
-	// 	dgs := game.DisplayGroups
-	// 	for j := 0; j < len(dgs); j++ {
-	// 		dg := dgs[j]
-	// 		mkts := dg.Markets
-	// 		for k := 0; k < len(mkts); k++ {
-	// 			mkt := mkts[k]
-	// 			// fmt.Println(mkt.Description)
-	// 			outcomes := mkt.Outcomes
-	// 			for l := 0; l < len(outcomes); l++ {
-	// 				outcome := outcomes[l]
-	// 				fmt.Println(game.ID, game.Description, dg.Description, mkt.Description, outcome.Price.American)
-	// 			}
+func main() {
+
+	headers := `{sport,game_id,a_team,h_team,a_ml,h_ml,last_mod,num_markets}`
+	fmt.Println(headers)
+
+	for _, row := range rs {
+		fmt.Println(row)
+	}
+	// fmt.Println(rs)
+
+	// for i, record := range rs {
+	// 	s := reflect.ValueOf(&record).Elem()
+	// 	for i := 0; i < s.NumField(); i++ {
+	// 		f := s.Field(i)
+	// 		fmt.Printf("%d: %s %s = %v\n", i, f.Type(), f.Interface())
+	// 		if err := w.Write(string(f)); err != nil {
+	// 			log.Fatalln("error writing record to csv:", err)
 	// 		}
 	// 	}
 	// }
-
-	for i := 0; i < numEvents; i++ {
-		r := makeRow(compEvents[i])
-		fmt.Println(r)
-	}
-
 }
 
 func toJSON(b []byte) []Competition {
