@@ -29,9 +29,12 @@ type Row struct {
 }
 
 var sportsMap = map[string]string{
-	"nba": "basketball/nba",
-	"nfl": "football/nfl",
-	"nhl": "hockey/nhl",
+	"nba":   "basketball/nba",
+	"nfl":   "football/nfl",
+	"nhl":   "hockey/nhl",
+	"mlb":   "baseball/mlb",
+	"allfb": "football/",
+	"allbb": "basketball/",
 }
 
 func makeRow(e Event) Row {
@@ -44,7 +47,7 @@ func makeRow(e Event) Row {
 	// }
 	r.GameID = gameID
 
-	fmt.Println(e.Competitors)
+	// fmt.Println(e.Competitors)
 	if len(e.Competitors) == 2 {
 		if e.AwayTeamFirst {
 			r.aTeam = e.Competitors[0].Name
@@ -137,6 +140,7 @@ func toJSON(b []byte) []Competition {
 		if err := dec.Decode(&c); err == io.EOF {
 			break
 		} else if err != nil {
+			fmt.Println("json couldnt -> []Competition")
 			log.Fatal(err)
 		}
 	}
@@ -146,13 +150,17 @@ func toJSON(b []byte) []Competition {
 func getRows(b []byte) []Row {
 	data := toJSON(b)
 	var rs []Row
-	compEvents := data[0].Events
-	numEvents := len(compEvents)
+	// var events []Event
 
-	for i := 0; i < numEvents; i++ {
-		r := makeRow(compEvents[i])
-		rs = append(rs, r)
+	for _, ev := range data {
+		es := ev.Events
+		for _, e := range es {
+			// events = append(e, events)
+			r := makeRow(e)
+			rs = append(rs, r)
+		}
 	}
+
 	return rs
 }
 
@@ -179,7 +187,7 @@ func main() {
 	headers := `{sport,game_id,a_team,h_team,a_ml,h_ml,last_mod,num_markets}`
 	fmt.Println(headers)
 
-	rs := getSport("nba")
+	rs := getSport("nfl")
 
 	for _, row := range rs {
 		fmt.Println(row)
