@@ -1,15 +1,5 @@
 package main
 
-import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"strings"
-)
-
 // Sport : specifying game
 type Sport struct {
 	Competitions []Competition `json:""`
@@ -123,40 +113,4 @@ type ResultStruct struct {
 // ResultList : give json to this
 type ResultList struct {
 	ResultL []Competition
-}
-
-func main() {
-	res, err := http.Get("https://www.bovada.lv/services/sports/event/v2/events/A/description/football/nfl")
-	if err != nil {
-		fmt.Println("1")
-		log.Fatal(err)
-	}
-
-	ret, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		fmt.Println("2")
-		log.Fatal(err)
-	}
-
-	retString := string(ret)
-	// marshErr := json.Unmarshal(ret, t)
-	dec := json.NewDecoder(strings.NewReader(retString))
-	var c []Competition
-	for {
-		if err := dec.Decode(&c); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%s\n", c[0].Events[0].ID)
-		fmt.Printf(string(len(c)))
-	}
-	json, err := json.MarshalIndent(c, "  ", "    ")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(string(json))
-
 }
