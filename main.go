@@ -95,6 +95,20 @@ func setAH(cs [2]Competitor) [2]string {
 	return [2]string{a, h}
 }
 
+func toJSON(b []byte) []Competition {
+	retString := string(b)
+	dec := json.NewDecoder(strings.NewReader(retString))
+	var c []Competition
+	for {
+		if err := dec.Decode(&c); err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return c
+}
+
 func getRows(b []byte) []Row {
 	data := toJSON(b)
 	var rs []Row
@@ -109,7 +123,7 @@ func getRows(b []byte) []Row {
 }
 
 func getSport(s string) []Row {
-	res, err := http.Get("https://www.bovada.lv/services/sports/event/v2/events/A/description/football/nfl")
+	res, err := http.Get("https://www.bovada.lv/services/sports/event/v2/events/A/description/" + s)
 	if err != nil {
 		fmt.Println("1")
 		log.Fatal(err)
@@ -123,8 +137,7 @@ func getSport(s string) []Row {
 	}
 
 	rs := getRows(ret)
-	// w := csv.NewWriter(os.Stdout)
-
+	return rs
 }
 
 func main() {
@@ -132,33 +145,10 @@ func main() {
 	headers := `{sport,game_id,a_team,h_team,a_ml,h_ml,last_mod,num_markets}`
 	fmt.Println(headers)
 
+	rs := getSport("basketball/nba")
+
 	for _, row := range rs {
 		fmt.Println(row)
 	}
-	// fmt.Println(rs)
 
-	// for i, record := range rs {
-	// 	s := reflect.ValueOf(&record).Elem()
-	// 	for i := 0; i < s.NumField(); i++ {
-	// 		f := s.Field(i)
-	// 		fmt.Printf("%d: %s %s = %v\n", i, f.Type(), f.Interface())
-	// 		if err := w.Write(string(f)); err != nil {
-	// 			log.Fatalln("error writing record to csv:", err)
-	// 		}
-	// 	}
-	// }
-}
-
-func toJSON(b []byte) []Competition {
-	retString := string(b)
-	dec := json.NewDecoder(strings.NewReader(retString))
-	var c []Competition
-	for {
-		if err := dec.Decode(&c); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
-		}
-	}
-	return c
 }
