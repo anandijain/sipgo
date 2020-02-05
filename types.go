@@ -114,3 +114,4 @@ type ResultStruct struct {
 type ResultList struct {
 	ResultL []Competition
 }
+
