@@ -115,3 +115,45 @@ type ResultList struct {
 	ResultL []Competition
 }
 
+type Clock struct {
+	Period                 string `json:"period"`
+	PeriodNumber           int    `json:"periodNumber"`
+	GameTime               string `json:"gameTime"`
+	RelativeGameTimeInSecs int    `json:"relativeGameTimeInSecs"`
+	Direction              string `json:"direction"`
+	NumberOfPeriods        int    `json:"numberOfPeriods"`
+	IsTicking              bool   `json:"isTicking"`
+}
+
+type scoreCompetitor struct {
+	Name          string      `json:"name"`
+	Nickname      string      `json:"nickname"`
+	Abbreviation  string      `json:"abbreviation"`
+	Type          string      `json:"type"`
+	HomeOrVisitor string      `json:"homeOrVisitor"`
+	TeamID        interface{} `json:"teamId"`
+}
+
+type latestScore struct {
+	Home    string `json:"home"`
+	Visitor string `json:"visitor"`
+}
+type altIds struct {
+	BGS int `json:"BGS"`
+}
+
+type Score struct {
+	EventID                 int               `json:"eventId"`
+	EventSource             string            `json:"eventSource"`
+	AltIds                  altIds            `json:"altIds"`
+	ScoreboardAvailable     bool              `json:"scoreboardAvailable"`
+	Sport                   string            `json:"sport"`
+	LatestScore             latestScore       `json:"latestScore"`
+	Clock                   Clock             `json:"clock"`
+	Competitors             []scoreCompetitor `json:"competitors"`
+	GameStatus              string            `json:"gameStatus"`
+	KeyEvents               []interface{}     `json:"keyEvents"`
+	LastUpdated             string            `json:"lastUpdated"`
+	EventDescription        string            `json:"eventDescription"`
+	DisplayVisitorTeamFirst bool              `json:"displayVisitorTeamFirst"`
+}

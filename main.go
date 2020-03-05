@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"github.com/gocolly/colly"
 	"log"
 	"net/http"
 	"strconv"
@@ -29,17 +28,32 @@ type Row struct {
 	LastMod    int
 }
 
-var sportsMap = map[string]string{
-	"nba":   "basketball/nba",
-	"nfl":   "football/nfl",
-	"nhl":   "hockey/nhl",
-	"mlb":   "baseball/mlb",
-	"allfb": "football/",
-	"allbb": "basketball/",
+type shortScore struct {
+	GameID    int
+	aTeam     string
+	hTeam     string
+	Period    int
+	Seconds   int
+	IsTicking bool
+	// NumberOfPeriods int
+	aPts    string
+	hPts    string
+	Status  string
+	lastMod string
 }
 
-func makeRow(e Event) Row {
+var sportsMap = map[string]string{
+	"nba":  "basketball/nba",
+	"nfl":  "football/nfl",
+	"nhl":  "hockey/nhl",
+	"mlb":  "baseball/mlb",
+	"FOOT": "football/",
+	"BASK": "basketball/",
+}
+
+func makeRow(e Event) (Row, bool) {
 	var r Row
+	var null_row = false
 	r.Sport = e.Sport
 	gameID, _ := strconv.Atoi(e.ID)
 	// if err != nil {
@@ -58,7 +72,7 @@ func makeRow(e Event) Row {
 			r.hTeam = e.Competitors[0].Name
 		}
 	} else {
-		return r
+		null_row = true
 	}
 
 	// var mkts []Market
@@ -77,11 +91,14 @@ func makeRow(e Event) Row {
 		if err != nil {
 			fmt.Println("closed", err)
 			r.aML = 0
+			null_row = true
 		}
 		hML, err := strconv.ParseFloat(mls[1].Price.Decimal, 64)
 		if err != nil {
 			fmt.Println("closed", err)
 			r.hML = 0
+			null_row = true
+
 		}
 
 		r.aML = aML
@@ -90,8 +107,11 @@ func makeRow(e Event) Row {
 	} else {
 		r.aML = 0
 		r.hML = 0
+		null_row = true
 	}
-
+	if null_row {
+		return r, true
+	}
 	aPS, _ := strconv.ParseFloat(mainMkts["Point Spread"].Outcomes[0].Price.Decimal, 64)
 	hPS, _ := strconv.ParseFloat(mainMkts["Point Spread"].Outcomes[1].Price.Decimal, 64)
 
@@ -107,7 +127,28 @@ func makeRow(e Event) Row {
 	r.LastMod = e.LastModified
 	r.gameStart = e.StartTime
 	r.NumMarkets = e.NumMarkets
+	if r.aTeam == "" {
+		fmt.Println("null row")
+		null_row = true
+	}
+	return r, null_row
+}
 
+func makeScore(s Score) shortScore {
+	var r shortScore
+	r.Period = s.Clock.PeriodNumber
+	r.Seconds = s.Clock.RelativeGameTimeInSecs
+	r.IsTicking = s.Clock.IsTicking
+	// r.NumberOfPeriods = s.Clock.NumberOfPeriods
+	if s.Competitors[0].Name == "" {
+		fmt.Println("broke")
+	}
+	r.aTeam = s.Competitors[0].Name
+	r.hTeam = s.Competitors[1].Name
+	r.aPts = s.LatestScore.Visitor
+	r.hPts = s.LatestScore.Home
+	r.Status = s.GameStatus
+	r.lastMod = s.LastUpdated
 	return r
 }
 
@@ -148,25 +189,23 @@ func toJSON(b []byte) []Competition {
 	return c
 }
 
-func getRows(b []byte) []Row {
-	data := toJSON(b)
-	var rs []Row
-	// var events []Event
-
-	for _, ev := range data {
-		es := ev.Events
-		for _, e := range es {
-			// events = append(e, events)
-			r := makeRow(e)
-			rs = append(rs, r)
-		}
+func scoreToJSON(b []byte) Score {
+	retString := string(b)
+	dec := json.NewDecoder(strings.NewReader(retString))
+	var s Score
+	if err := dec.Decode(&s); err == io.EOF {
+		fmt.Println("json couldnt -> Score")
+		log.Fatal(err)
+	} else if err != nil {
+		fmt.Println("json couldnt -> Score")
+		log.Fatal(err)
 	}
-
-	return rs
+	return s
 }
 
 func getSport(s string) []Row {
 	res, err := http.Get("https://www.bovada.lv/services/sports/event/v2/events/A/description/" + sportsMap[s])
+	fmt.Println(res)
 	if err != nil {
 		fmt.Println("1")
 		log.Fatal(err)
@@ -183,70 +222,94 @@ func getSport(s string) []Row {
 	return rs
 }
 
-func getRefGame(s string, id string)
-	sport_map := map[string]string{
-		"nba": "https://www.basketball-reference.com/",
-		"nfl": "https://www.pro-football-reference.com/"
-		"nhl": "https://www.hockey-reference.com/"
-		"mlb": "https://www.baseball-reference.com/"
-	}
-	REF_SFX := map[string]string{
-    "nfl": ".htm",
-    "nba": ".html",
-    "mlb": ".shtml",
-    "nhl": "html",
+func getRows(b []byte) []Row {
+	data := toJSON(b)
+	var rs []Row
+	// var events []Event
+
+	for _, ev := range data {
+		es := ev.Events
+		for _, e := range es {
+			// events = append(e, events)
+			r, null_row := makeRow(e)
+			fmt.Println(r)
+			// s := getScore(e.ID)
+			// fmt.Println(s)
+			if null_row == false {
+				rs = append(rs, r)
+			}
+		}
 	}
 
-	REF_BOX_SFX := map[string]string {
-		"nfl": "boxscores/",
-		"nba": "boxscores/",
-		"mlb": "boxes/",
-		"nhl": "boxscores/",
-	}	
-	root_domain := sport_map[s]
-	fmt.Println(root_domain)
-	fName := "202001260ATL.csv"
-	file, err := os.Create(fName)
-	// table id four_factors
-	defer file.Close()
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
+	return rs
+}
 
-	// Write CSV header
-	// writer.Write([]string{"team", "pace", "eFG%", "TOV%", "ORB%", "FT/FTA", "ORtg"})
-	writer.Write([]string{"name", "p_id", "pos"})
-	c := colly.NewCollector(
-		colly.AllowedDomains(root_domain),
-	)
-	
-	// Extract product details
-	c.OnHTML("#home_starters tbody tr", func(e *colly.HTMLElement) {
-		e.ForEach(".")
-		writer.Write([]string{
-			e.ChildAttr("a", "title"),
-			e.ChildText("span"),
-			e.Request.AbsoluteURL(e.ChildAttr("a", "href")),
-			"https" + e.ChildAttr("img", "src"),
-		})
-	})
-	c.OnHTML("#vis_starters tbody tr", func(e *colly.HTMLElement) {
-		e.ForEach(".")
-		writer.Write([]string{
-			e.ChildAttr("a", "title"),
-			e.ChildText("span"),
-			e.Request.AbsoluteURL(e.ChildAttr("a", "href")),
-			"https" + e.ChildAttr("img", "src"),
-		})
-	})
+func getScore(s string) shortScore {
+	url := "https://www.bovada.lv/services/sports/results/api/v1/scores/" + s
+	res, err := http.Get(url)
+	// fmt.Println(res)
+	if err != nil {
+		fmt.Println("1")
+		log.Fatal(err)
+	}
+	ret, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+
+	if err != nil {
+		fmt.Println("2")
+		log.Fatal(err)
+	}
+	gameID, _ := strconv.Atoi(s)
+	data := scoreToJSON(ret)
+	r := makeScore(data)
+	r.GameID = gameID
+	return r
+}
+
+func idsFromRows(rs []Row) []int {
+	var ids []int
+	for _, r := range rs {
+		ids = append(ids, r.GameID)
+	}
+	return ids
+}
+
+func getScores(ids []int) []shortScore {
+	var scores []shortScore
+	for _, id := range ids {
+		game_id := strconv.Itoa(id)
+		s := getScore(game_id)
+		scores = append(scores, s)
+	}
+	return scores
+}
+
+
 func main() {
+	lines, err := os.Create("lines.csv")
+	scores, err := os.Create("scores.csv")
+	
+	linesWriter := csv.NewWriter(lines)
+	scoresWriter := csv.NewWriter(scores)
+	
+	defer linesWriter.Flush()
+	defer scoresWriter.Flush()
 
 	headers := `{sport,game_id,a_team,h_team,a_ml,h_ml,last_mod,num_markets}`
+	scoreHeaders := `{game_id,a_team,h_team,period,secs,is_ticking,a_pts,h_pts,status,last_mod}`
+
 	fmt.Println(headers)
+	fmt.Println(scoreHeaders)
 
-	rs := getSport("nba")
+	nba := getSport("nba")
+	ids := idsFromRows(nba)
+	scores = getScores(ids)
 
-	for _, row := range rs {
-		fmt.Println(row)
-	}
+    for _, value := range  {
+        err := writer.Write(value)
+        checkError("Cannot write to file", err)
+    }
+	checkError("Cannot create file", err)
+    defer file.Close()
 
 }
