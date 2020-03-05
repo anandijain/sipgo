@@ -223,21 +223,39 @@ func lineLooperz(s string) {
 	}
 
 }
-func writeScores(s string){
+func scoreLooperz(s string) {
 	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
 	_, w := initCSV("scores.csv", scoreHeaders)
-	
+	w.Flush()
+	// f.Close()
+	prev := time.Now()
+	now := time.Now()
+	delta := now.Sub(prev)
+	i := 0
+	for true {
+		w.WriteAll(getScoreRows(s))
+		i = i + 1
+		delta = now.Sub(prev)
+		prev = now
+		now = time.Now()
+		fmt.Println("%s", i, delta)
+		time.Sleep(time.Duration(10)*time.Second)
+	}
+
+}
+func getScoreRows(s string) [][]string {	
 	lines := getLines(s)
 	ids := idsFromRows(lines)
 	scores := getScores(ids)
 	to_write := scoresToCSV(scores)
-	w.WriteAll(to_write)
+	return to_write
 }
 
 func main() {
 	start := time.Now()
 
-	lineLooperz("")
+	// lineLooperz("")
+	scoreLooperz("basketball")
 	// writeScores("basketball")
 
 	t := time.Now()
