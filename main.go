@@ -207,11 +207,13 @@ func main() {
 
 	sport := ""
 	lines := getLines(sport)
-	ids := idsFromRows(lines)
-	scores := getScores(ids)
-	to_write := scoresToCSV(scores)
-	fmt.Println(lines)
-	toCSV("scores.csv", to_write, scoreHeaders)
+	// ids := idsFromRows(lines)
+	// scores := getScores(ids)
+	// to_write := scoresToCSV(lines)
+	to_write := rowsToCSV(lines)
+	fmt.Println(len(lines))
+	// toCSV("scores.csv", to_write, scoreHeaders)
+	toCSV("lines.csv", to_write, headers)
 
 	t := time.Now()
 	elapsed := t.Sub(start)
