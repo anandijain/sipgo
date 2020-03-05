@@ -206,17 +206,19 @@ func lineLooperz(s string) {
 	// f.Close()
 	prev := time.Now()
 	now := time.Now()
+	delta := now.Sub(prev)
 	i := 0
 	for true {
 		lines := getLines(s)
 		to_write := rowsToCSV(lines)
-		fmt.Println(to_write)
+		// fmt.Println(to_write)
 		w.WriteAll(to_write)
 		
 		i = i + 1
-		now  time.Now()
-		delta
-		fmt.Println("%s", i)
+		delta = now.Sub(prev)
+		prev = now
+		now = time.Now()
+		fmt.Println("%s", i, delta)
 		time.Sleep(time.Duration(10)*time.Second)
 	}
 
