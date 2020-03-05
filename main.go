@@ -165,18 +165,19 @@ func checkError(message string, err error) {
 	}
 }
 
-func toCSV(fn string, data [][]string, header []string) {
+func toCSV(w csv.Writer, data [][]string) {
+
+}
+
+func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	f, err := os.Create(fn)
 	checkError("Cannot create file", err)
-	defer f.Close()
+	// defer f.Close()
 
 	w := csv.NewWriter(f)
 	w.Write(header)
-	defer w.Flush()
-	for _, row := range data {
-		w.Write(row)
-	}
-	f.Close()
+	// defer w.Flush()
+	return f, w
 }
 
 func rowsToCSV(data []Row) [][]string {
@@ -197,23 +198,45 @@ func scoresToCSV(data []shortScore) [][]string {
 	return recs
 }
 
+func lineLooperz(s string) {
+	headers := []string{"sport", "game_id", "a_team", "h_team", "a_ml", "h_ml", "last_mod", "num_markets"}
+	// _, w := initCSV("lines.csv", headers)
+	_, w := initCSV("lines.csv", headers)
+	w.Flush()
+	// f.Close()
+	prev := time.Now()
+	now := time.Now()
+	i := 0
+	for true {
+		lines := getLines(s)
+		to_write := rowsToCSV(lines)
+		fmt.Println(to_write)
+		w.WriteAll(to_write)
+		
+		i = i + 1
+		now  time.Now()
+		delta
+		fmt.Println("%s", i)
+		time.Sleep(time.Duration(10)*time.Second)
+	}
+
+}
+func writeScores(s string){
+	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
+	_, w := initCSV("scores.csv", scoreHeaders)
+	
+	lines := getLines(s)
+	ids := idsFromRows(lines)
+	scores := getScores(ids)
+	to_write := scoresToCSV(scores)
+	w.WriteAll(to_write)
+}
+
 func main() {
 	start := time.Now()
-	headers := []string{"sport", "game_id", "a_team", "h_team", "a_ml", "h_ml", "last_mod", "num_markets"}
-	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
 
-	fmt.Println(headers)
-	fmt.Println(scoreHeaders)
-
-	sport := ""
-	lines := getLines(sport)
-	// ids := idsFromRows(lines)
-	// scores := getScores(ids)
-	// to_write := scoresToCSV(lines)
-	to_write := rowsToCSV(lines)
-	fmt.Println(len(lines))
-	// toCSV("scores.csv", to_write, scoreHeaders)
-	toCSV("lines.csv", to_write, headers)
+	lineLooperz("")
+	// writeScores("basketball")
 
 	t := time.Now()
 	elapsed := t.Sub(start)
