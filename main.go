@@ -224,11 +224,9 @@ func lineLooperz(s string) {
 
 func grab(s string) (map[int]Line, map[int]shortScore) {
 	rs, _ := getLines(s)
-	rowsToWrite := rowsToCSV(rs)
 	ids := idsFromLines(rs)
 	scs := getScores(ids, len(ids))
-	scoresToWrite := scoresToCSV(scs)
-	return rowsToWrite, scoresToWrite
+	return rs, scs
 }
 
 func looperz(s string, n int){
@@ -239,7 +237,10 @@ func looperz(s string, n int){
 	_, scoreWriter := initCSV("scores2.csv", scoreHeaders)
 
 	for {
-		rowsToWrite, scoresToWrite := grab(s)
+		rs, scs := grab(s)
+		rowsToWrite := rowsToCSV(rs)
+		scoresToWrite := scoresToCSV(scs)
+
 		lineWriter.WriteAll(rowsToWrite)
 		scoreWriter.WriteAll(scoresToWrite)
 	}
