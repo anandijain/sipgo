@@ -202,18 +202,16 @@ func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
 func grab(s string) (map[int]Line, map[int]shortScore) {
 
 	nba, _ := getLines(s)
-
 	ids := idsFromLines(nba)
 	scores := getScores(ids, len(ids))
+
 	return nba, scores
 }
 
 func lineLooperz(s string) {
 	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
-	// _, w := initCSV("lines.csv", headers)
 	_, w := initCSV("lines.csv", headers)
 	w.Flush()
-	// f.Close()
 	prev := time.Now()
 	now := time.Now()
 	delta := now.Sub(prev)
@@ -221,7 +219,6 @@ func lineLooperz(s string) {
 	for {
 		lines, _ := getLines(s)
 		to_write := rowsToCSV(lines)
-		// fmt.Println(to_write)
 		w.WriteAll(to_write)
 
 		i = i + 1
@@ -241,8 +238,10 @@ func looperz(s string, n int) []time.Time {
 
 	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
+
 	_, lineWriter := initCSV("lines2.csv", headers)
 	_, scoreWriter := initCSV("scores2.csv", scoreHeaders)
+	
 	for i := 1; i <= n; i++ {
 		rs, _ := getLines(s)
 		rowsToWrite := rowsToCSV(rs)
@@ -259,6 +258,6 @@ func looperz(s string, n int) []time.Time {
 
 func main() {
 
-	ts := looperz("tennis", 5)
+	ts := looperz("tennis", -1)
 	fmt.Println(ts)
 }
