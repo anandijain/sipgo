@@ -40,7 +40,7 @@ odds:
 
 ## TODO
 
-* only grab score of live games, sorting live games by num_markets
+* store previous state, only write new data. attempt at fast differencing
 * cloud sql upload
 
 ## completed
