@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+drawSports := []string{"SOCC", "RUGU", "RUGL"}
+
 func parseOutcomes(os []Outcome) []float64 {
 	var decimals []float64
 	for _, o := range os {
@@ -23,18 +25,22 @@ func parseOutcomes(os []Outcome) []float64 {
 	return decimals
 }
 
+func stringInSlice(a string, list []string) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
+}
+
 func makeRow(e Event) (Row, bool) {
 	var r Row
 	var null_row = false
 	r.Sport = e.Sport
 	gameID, _ := strconv.Atoi(e.ID)
-	// if err != nil {
-	// 	fmt.Println("gameID weirdness", err)
-	// 	gameID := ""
-	// }
 	r.GameID = gameID
 
-	// fmt.Println(e.Competitors)
 	if len(e.Competitors) == 2 {
 		if e.AwayTeamFirst {
 			r.aTeam = e.Competitors[0].Name
@@ -46,14 +52,6 @@ func makeRow(e Event) (Row, bool) {
 	} else {
 		null_row = true
 	}
-
-	// var mkts []Market
-	// for _, dg := range e.DisplayGroups {
-	// 	for  _, value := range getMainMarkets(dg.Markets) {
-	// 	   mkts = append(value, mkts)
-	// 	}
-
-	// }
 	mkts := e.DisplayGroups[0].Markets
 	mainMkts := getMainMarkets(mkts)
 	var mls []Outcome
@@ -82,24 +80,6 @@ func makeRow(e Event) (Row, bool) {
 				return r, null_row
 		}
 	}
-	// if len(parsedSpreads) != 2 {
-	// 	return r, null_row
-	// } else {
-	// 	r.aPS = parsedSpreads[0]
-	// 	r.hPS = parsedSpreads[1]
-	// }
-
-	// aPS, _ := strconv.ParseFloat(spreads[0].Price.Decimal, 64)
-	// hPS, _ := strconv.ParseFloat(spreads[1].Price.Decimal, 64)
-
-	// aHC, _ := strconv.ParseFloat(spreads[0].Price.Handicap, 64)
-	// hHC, _ := strconv.ParseFloat(spreads[1].Price.Handicap, 64)
-
-	// r.aPS = aPS
-	// r.hPS = hPS
-
-	// r.aHC = aHC
-	// r.hHC = hHC
 
 	r.LastMod = e.LastModified
 	r.gameStart = e.StartTime

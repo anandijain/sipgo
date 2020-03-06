@@ -197,7 +197,7 @@ func scoresToCSV(data []shortScore) [][]string {
 }
 
 func lineLooperz(s string) {
-	headers := []string{"sport", "game_id", "a_team", "h_team", "a_ml", "h_ml", "draw_ml", "last_mod", "num_markets"}
+	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 	// _, w := initCSV("lines.csv", headers)
 	_, w := initCSV("lines.csv", headers)
 	w.Flush()
