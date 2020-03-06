@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-drawSports := []string{"SOCC", "RUGU", "RUGL"}
 
 func parseOutcomes(os []Outcome) []float64 {
 	var decimals []float64
@@ -34,7 +33,19 @@ func stringInSlice(a string, list []string) bool {
     return false
 }
 
-func makeRow(e Event) (Row, bool) {
+func index_strs(vs []string, t string) int {
+    for i, v := range vs {
+        if v == t {
+            return i
+        }
+    }
+    return -1
+}
+func includes(vs []string, t string) bool {
+    return index_strs(vs, t) >= 0
+}
+
+func makeRow(e Event, drawSports []string) (Row, bool) {
 	var r Row
 	var null_row = false
 	r.Sport = e.Sport
@@ -55,7 +66,7 @@ func makeRow(e Event) (Row, bool) {
 	mkts := e.DisplayGroups[0].Markets
 	mainMkts := getMainMarkets(mkts)
 	var mls []Outcome
-	if r.Sport == "SOCC" {
+	if includes(drawSports, r.Sport) {
 		mls = mainMkts["3-Way Moneyline"].Outcomes
 	} else {
 		mls = mainMkts["Moneyline"].Outcomes

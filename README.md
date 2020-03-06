@@ -10,8 +10,9 @@ Collects the moneyline of ~500 events and the score of live games.
 
 at ~20 mbps 
 
-    requesting 1564 (431 with NA drop) lines and scores took 15 mins
-    1670 (1669 with NA drop) of lines took ~20 seconds
+* requesting 1564 (431 with NA drop) lines and scores takes ~~~15 mins~~ ~25 seconds
+* 1670 (1669 with NA drop) of lines took ~20 seconds
+
 
 ## data breakdown
 
@@ -45,3 +46,4 @@ odds:
 ## completed
 
 * soccer fix
+* scores using semaphores/concurrency

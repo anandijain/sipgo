@@ -1,3 +1,4 @@
+// credit montanaflynn/pget.go https://gist.github.com/montanaflynn/ea4b92ed640f790c4b9cee36046a5383
 package main
 
 import (
@@ -7,12 +8,17 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 	// "google.golang.org/appengine"
 )
 
-// var db *sql.DB
+type concurrentRes struct {
+	index int
+	res   shortScore
+	err   error
+}
 
 func rowToCSV(r Row) []string {
 	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
@@ -97,11 +103,11 @@ func getRows(b []byte) []Row {
 	data := toJSON(b)
 	var rs []Row
 	// var events []Event
-
+	drawSports := []string{"SOCC", "RUGU", "RUGL"}
 	for _, ev := range data {
 		es := ev.Events
 		for _, e := range es {
-			r, null_row := makeRow(e)
+			r, null_row := makeRow(e, drawSports)
 			if null_row == false {
 				rs = append(rs, r)
 			}
@@ -111,13 +117,13 @@ func getRows(b []byte) []Row {
 	return rs
 }
 
-func getScore(s string) shortScore {
+func getScore(s string) (shortScore, error) {
 	url := "https://www.bovada.lv/services/sports/results/api/v1/scores/" + s
-	res, err := http.Get(url)
+	res, httperr := http.Get(url)
 	// fmt.Println(res)
-	if err != nil {
+	if httperr != nil {
 		fmt.Println("1")
-		log.Fatal(err)
+		log.Fatal(httperr)
 	}
 	ret, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
@@ -130,7 +136,7 @@ func getScore(s string) shortScore {
 	data := scoreToJSON(ret)
 	r := makeScore(data)
 	r.GameID = gameID
-	return r
+	return r, httperr
 }
 
 func idsFromRows(rs []Row) []int {
@@ -141,12 +147,44 @@ func idsFromRows(rs []Row) []int {
 	return ids
 }
 
-func getScores(ids []int) []shortScore {
+func getScores(ids []int, concurrencyLimit int) []shortScore {
 	var scores []shortScore
-	for _, id := range ids {
-		game_id := strconv.Itoa(id)
-		s := getScore(game_id)
-		scores = append(scores, s)
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+	resultsChan := make(chan *concurrentRes)
+
+	// make sure we close these channels when we're done with them
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+
+	for i, g_id := range ids {
+
+		go func(i int, g_id int) {
+
+			semaphoreChan <- struct{}{}
+			s, err := getScore(strconv.Itoa(g_id))
+			result := concurrentRes{i, s, err}
+			resultsChan <- &result
+			<-semaphoreChan
+
+		}(i, g_id)
+	}
+	var results []concurrentRes
+
+	for {
+		result := <-resultsChan
+		results = append(results, *result)
+
+		if len(results) == len(ids) {
+			break
+		}
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+	for _, res := range results {
+		scores = append(scores, res.res)
 	}
 	return scores
 }
@@ -155,7 +193,7 @@ func sportWithScores(s string) ([]Row, []shortScore) {
 
 	nba := getLines(s)
 	ids := idsFromRows(nba)
-	scores := getScores(ids)
+	scores := getScores(ids, 2)
 
 	return nba, scores
 }
@@ -165,7 +203,6 @@ func checkError(message string, err error) {
 		log.Fatal(message, err)
 	}
 }
-
 
 func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	f, err := os.Create(fn)
@@ -244,7 +281,7 @@ func scoreLooperz(s string, fn string) {
 func getScoreRows(s string) [][]string {
 	lines := getLines(s)
 	ids := idsFromRows(lines)
-	scores := getScores(ids)
+	scores := getScores(ids, 2)
 	to_write := scoresToCSV(scores)
 	return to_write
 }
@@ -252,11 +289,15 @@ func getScoreRows(s string) [][]string {
 func main() {
 	start := time.Now()
 
-	lineLooperz("")
+	// lineLooperz("")
+	rs := getLines("")
+	ids := idsFromRows(rs)
+	scs := getScores(ids, len(ids))
 	// scoreLooperz("esports", "esports.csv")
 	// writeScores("basketball")
 
 	t := time.Now()
 	elapsed := t.Sub(start)
+	fmt.Println(scs)
 	fmt.Println(elapsed)
 }
