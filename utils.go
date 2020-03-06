@@ -56,19 +56,32 @@ func makeRow(e Event) (Row, bool) {
 	// }
 	mkts := e.DisplayGroups[0].Markets
 	mainMkts := getMainMarkets(mkts)
-
-	mls := mainMkts["Moneyline"].Outcomes
+	var mls []Outcome
+	if r.Sport == "SOCC" {
+		mls = mainMkts["3-Way Moneyline"].Outcomes
+	} else {
+		mls = mainMkts["Moneyline"].Outcomes
+	}
 	// spreads := mainMkts["Point Spread"].Outcomes
 	parsedMLs := parseOutcomes(mls)
 	// parsedSpreads := parseOutcomes(spreads)
-
-	if len(parsedMLs) != 2 {
-		return r, null_row
+	if r.Sport == "SOCC" {
+		if len(parsedMLs) == 3 {
+			r.aML = parsedMLs[0]
+			r.hML = parsedMLs[1]
+			r.drawML = parsedMLs[2]
+			} else {
+				return r, null_row
+		}
 	} else {
-		r.aML = parsedMLs[0]
-		r.hML = parsedMLs[1]
+		if len(parsedMLs) == 2 {
+			r.aML = parsedMLs[0]
+			r.hML = parsedMLs[1]
+			r.drawML = 0.
+			} else {
+				return r, null_row
+		}
 	}
-
 	// if len(parsedSpreads) != 2 {
 	// 	return r, null_row
 	// } else {

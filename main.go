@@ -15,7 +15,7 @@ import (
 // var db *sql.DB
 
 func rowToCSV(r Row) []string {
-	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML),
+	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
 		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
 	return ret
 }
@@ -29,6 +29,7 @@ type Row struct {
 	NumMarkets int
 	aML        float64
 	hML        float64
+	drawML     float64
 	// aPS        float64
 	// hPS        float64
 	// aHC        float64
@@ -165,9 +166,6 @@ func checkError(message string, err error) {
 	}
 }
 
-func toCSV(w csv.Writer, data [][]string) {
-
-}
 
 func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	f, err := os.Create(fn)
@@ -199,7 +197,7 @@ func scoresToCSV(data []shortScore) [][]string {
 }
 
 func lineLooperz(s string) {
-	headers := []string{"sport", "game_id", "a_team", "h_team", "a_ml", "h_ml", "last_mod", "num_markets"}
+	headers := []string{"sport", "game_id", "a_team", "h_team", "a_ml", "h_ml", "draw_ml", "last_mod", "num_markets"}
 	// _, w := initCSV("lines.csv", headers)
 	_, w := initCSV("lines.csv", headers)
 	w.Flush()
@@ -213,19 +211,19 @@ func lineLooperz(s string) {
 		to_write := rowsToCSV(lines)
 		// fmt.Println(to_write)
 		w.WriteAll(to_write)
-		
+
 		i = i + 1
 		delta = now.Sub(prev)
 		prev = now
 		now = time.Now()
 		fmt.Println("%s", i, delta)
-		time.Sleep(time.Duration(10)*time.Second)
+		time.Sleep(time.Duration(10) * time.Second)
 	}
 
 }
-func scoreLooperz(s string) {
+func scoreLooperz(s string, fn string) {
 	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
-	_, w := initCSV("scores.csv", scoreHeaders)
+	_, w := initCSV(fn, scoreHeaders)
 	w.Flush()
 	// f.Close()
 	prev := time.Now()
@@ -239,11 +237,11 @@ func scoreLooperz(s string) {
 		prev = now
 		now = time.Now()
 		fmt.Println("%s", i, delta)
-		time.Sleep(time.Duration(10)*time.Second)
+		time.Sleep(time.Duration(10) * time.Second)
 	}
 
 }
-func getScoreRows(s string) [][]string {	
+func getScoreRows(s string) [][]string {
 	lines := getLines(s)
 	ids := idsFromRows(lines)
 	scores := getScores(ids)
@@ -254,8 +252,8 @@ func getScoreRows(s string) [][]string {
 func main() {
 	start := time.Now()
 
-	// lineLooperz("")
-	scoreLooperz("basketball")
+	lineLooperz("")
+	// scoreLooperz("esports", "esports.csv")
 	// writeScores("basketball")
 
 	t := time.Now()

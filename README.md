@@ -40,5 +40,8 @@ odds:
 ## TODO
 
 * only grab score of live games, sorting live games by num_markets
-* soccer fix
 * cloud sql upload
+
+## completed
+
+* soccer fix
