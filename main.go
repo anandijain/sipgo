@@ -229,7 +229,7 @@ func grab(s string) (map[int]Line, map[int]shortScore) {
 	return rs, scs
 }
 
-func looperz(s string, n int){
+func looperz(s string){
 	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
 
@@ -248,6 +248,6 @@ func looperz(s string, n int){
 
 func main() {
 
-	looperz("tennis")
+	looperz("")
 	
 }
