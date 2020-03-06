@@ -2,12 +2,10 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -18,12 +16,6 @@ type concurrentRes struct {
 	index int
 	res   shortScore
 	err   error
-}
-
-func rowToCSV(r Row) []string {
-	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
-		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
-	return ret
 }
 
 // Row for CSV headers len 8
@@ -72,6 +64,30 @@ func scoreToCSV(s shortScore) []string {
 		fmt.Sprint(s.lastMod),
 	}
 	return ret
+}
+
+func rowToCSV(r Row) []string {
+	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
+		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
+	return ret
+}
+
+func rowsToCSV(data []Row) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := rowToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+
+func scoresToCSV(data []shortScore) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := scoreToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
 }
 
 var sportsMap = map[string]string{
@@ -198,41 +214,6 @@ func sportWithScores(s string) ([]Row, []shortScore) {
 	return nba, scores
 }
 
-func checkError(message string, err error) {
-	if err != nil {
-		log.Fatal(message, err)
-	}
-}
-
-func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
-	f, err := os.Create(fn)
-	checkError("Cannot create file", err)
-	// defer f.Close()
-
-	w := csv.NewWriter(f)
-	w.Write(header)
-	// defer w.Flush()
-	return f, w
-}
-
-func rowsToCSV(data []Row) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := rowToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
-func scoresToCSV(data []shortScore) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := scoreToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
 func lineLooperz(s string) {
 	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 	// _, w := initCSV("lines.csv", headers)
@@ -289,12 +270,20 @@ func getScoreRows(s string) [][]string {
 func main() {
 	start := time.Now()
 
+	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
+	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
+
+	_, lineWriter := initCSV("lines2.csv", headers)
+	_, scoreWriter := initCSV("scores2.csv", scoreHeaders)
 	// lineLooperz("")
 	rs := getLines("")
+	rowsToWrite := rowsToCSV(rs)
 	ids := idsFromRows(rs)
 	scs := getScores(ids, len(ids))
-	// scoreLooperz("esports", "esports.csv")
-	// writeScores("basketball")
+	scoresToWrite := scoresToCSV(scs)
+
+	lineWriter.WriteAll(rowsToWrite)
+	scoreWriter.WriteAll(scoresToWrite)
 
 	t := time.Now()
 	elapsed := t.Sub(start)

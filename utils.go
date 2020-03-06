@@ -1,14 +1,15 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
-
 
 func parseOutcomes(os []Outcome) []float64 {
 	var decimals []float64
@@ -25,24 +26,24 @@ func parseOutcomes(os []Outcome) []float64 {
 }
 
 func stringInSlice(a string, list []string) bool {
-    for _, b := range list {
-        if b == a {
-            return true
-        }
-    }
-    return false
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 func index_strs(vs []string, t string) int {
-    for i, v := range vs {
-        if v == t {
-            return i
-        }
-    }
-    return -1
+	for i, v := range vs {
+		if v == t {
+			return i
+		}
+	}
+	return -1
 }
 func includes(vs []string, t string) bool {
-    return index_strs(vs, t) >= 0
+	return index_strs(vs, t) >= 0
 }
 
 func makeRow(e Event, drawSports []string) (Row, bool) {
@@ -79,16 +80,16 @@ func makeRow(e Event, drawSports []string) (Row, bool) {
 			r.aML = parsedMLs[0]
 			r.hML = parsedMLs[1]
 			r.drawML = parsedMLs[2]
-			} else {
-				return r, null_row
+		} else {
+			return r, null_row
 		}
 	} else {
 		if len(parsedMLs) == 2 {
 			r.aML = parsedMLs[0]
 			r.hML = parsedMLs[1]
 			r.drawML = 0.
-			} else {
-				return r, null_row
+		} else {
+			return r, null_row
 		}
 	}
 
@@ -111,7 +112,7 @@ func makeScore(s Score) shortScore {
 	if len(s.Competitors) != 2 {
 		return r
 	}
-	
+
 	if s.Competitors[0].Name == "" {
 		fmt.Println("broke")
 	}
@@ -173,4 +174,21 @@ func scoreToJSON(b []byte) Score {
 		log.Fatal(err)
 	}
 	return s
+}
+
+func checkError(message string, err error) {
+	if err != nil {
+		log.Fatal(message, err)
+	}
+}
+
+func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
+	f, err := os.Create(fn)
+	checkError("Cannot create file", err)
+	// defer f.Close()
+
+	w := csv.NewWriter(f)
+	w.Write(header)
+	// defer w.Flush()
+	return f, w
 }
