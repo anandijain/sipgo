@@ -11,14 +11,8 @@ import (
 	"time"
 )
 
-var sportsMap = map[string]string{
-	"nba":  "basketball/nba",
-	"nfl":  "football/nfl",
-	"nhl":  "hockey/nhl",
-	"mlb":  "baseball/mlb",
-	"FOOT": "football/",
-	"BASK": "basketball/",
-}
+var lineRoot = "https://www.bovada.lv/services/sports/event/v2/events/A/description/"
+var scoreRoot = "https://www.bovada.lv/services/sports/results/api/v1/scores/"
 
 type concurrentRes struct {
 	index int
@@ -54,6 +48,27 @@ type shortScore struct {
 	lastMod   string
 }
 
+// Line for CSV headers len 17
+type Row struct {
+	Sport      string
+	GameID     int
+	aTeam      string
+	hTeam      string
+	NumMarkets int
+	aML        float64
+	hML        float64
+	drawML     float64
+	gameStart  int
+	LastMod    int
+	Period     int
+	Seconds    int
+	IsTicking  bool
+	aPts       string
+	hPts       string
+	Status     string
+	lastMod    string
+}
+
 func scoreToCSV(s shortScore) []string {
 	ret := []string{
 		fmt.Sprint(s.GameID),
@@ -76,6 +91,29 @@ func rowToCSV(r Line) []string {
 	return ret
 }
 
+func rowToCSV(r Line) []string {
+	ret := []string{
+		r.Sport, 
+		fmt.Sprint(r.GameID), 
+		r.aTeam, 
+		r.hTeam, 
+		fmt.Sprint(r.NumMarkets), 
+		fmt.Sprint(r.aML), 
+		fmt.Sprint(r.hML), 
+		fmt.Sprint(r.drawML),
+		fmt.Sprint(r.gameStart),
+		fmt.Sprint(r.LastMod),
+		fmt.Sprint(s.Period),
+		fmt.Sprint(s.Seconds),
+		fmt.Sprint(s.IsTicking),
+		fmt.Sprint(s.aPts),
+		fmt.Sprint(s.hPts),
+		s.Status,
+		fmt.Sprint(s.lastMod)
+	}
+	return ret
+}
+
 func rowsToCSV(data map[int]Line) [][]string {
 	var recs [][]string
 	for _, r := range data {
@@ -95,16 +133,7 @@ func scoresToCSV(data map[int]shortScore) [][]string {
 }
 
 func getLines(s string) (map[int]Line, error) {
-	res, httperr := http.Get("https://www.bovada.lv/services/sports/event/v2/events/A/description/" + s)
-	if httperr != nil {
-		log.Fatal(httperr)
-	}
-	ret, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	ret, err = req()
 
 	rs := parseLines(ret)
 	return rs, httperr
@@ -127,17 +156,47 @@ func parseLines(b []byte) map[int]Line {
 	return rs
 }
 
-func getScore(s string) (shortScore, error) {
-	url := "https://www.bovada.lv/services/sports/results/api/v1/scores/" + s
-	res, httperr := http.Get(url)
-	// fmt.Println(res)
+func addScore(r Row) Row {
+	ret, err = req(scoreRoot + r.GameID)
+	if err != nil {
+		fmt.Println("2")
+		log.Fatal(err)
+	}
+	gameID, _ := strconv.Atoi(s)
+	data := scoreToJSON(ret)
+
+	var r Row
+	r.Period = s.Clock.PeriodNumber
+	r.Seconds = s.Clock.RelativeGameTimeInSecs
+	r.IsTicking = s.Clock.IsTicking
+	// r.NumberOfPeriods = s.Clock.NumberOfPeriods
+	if len(s.Competitors) != 2 {
+		return r
+	}
+
+	if s.Competitors[0].Name == "" {
+		fmt.Println("broke")
+	}
+	r.aPts = s.LatestScore.Visitor
+	r.hPts = s.LatestScore.Home
+	r.Status = s.GameStatus
+	r.lastMod = s.LastUpdated
+	return r
+}
+
+func req(s string) ([]byte, error) {
+	res, httperr := http.Get(s)
 	if httperr != nil {
 		fmt.Println("1")
 		log.Fatal(httperr)
 	}
 	ret, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
+	return ret, httperr
+}
 
+func getScore(s string) (shortScore, error) {
+	ret, err = req(scoreRoot + s)
 	if err != nil {
 		fmt.Println("2")
 		log.Fatal(err)
@@ -145,7 +204,6 @@ func getScore(s string) (shortScore, error) {
 	gameID, _ := strconv.Atoi(s)
 	data := scoreToJSON(ret)
 	r := makeScore(data)
-	r.GameID = gameID
 	return r, httperr
 }
 
@@ -158,6 +216,7 @@ func idsFromLines(rs map[int]Line) []int {
 }
 
 func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
+	var results []concurrentRes
 	scores := make(map[int]shortScore)
 	semaphoreChan := make(chan struct{}, concurrencyLimit)
 	resultsChan := make(chan *concurrentRes)
@@ -169,23 +228,54 @@ func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
 	}()
 
 	for i, g_id := range ids {
-
 		go func(i int, g_id int) {
-
 			semaphoreChan <- struct{}{}
 			s, err := getScore(strconv.Itoa(g_id))
 			result := concurrentRes{i, s, err}
 			resultsChan <- &result
 			<-semaphoreChan
-
 		}(i, g_id)
 	}
-	var results []concurrentRes
-
 	for {
 		result := <-resultsChan
 		results = append(results, *result)
+		if len(results) == len(ids) {
+			break
+		}
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+	for _, res := range results {
+		scores[res.res.GameID] = res.res
+	}
+	return scores
+}
 
+func getScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
+	var results []concurrentRes
+	scores := make(map[int]shortScore)
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+	resultsChan := make(chan *concurrentRes)
+
+	// make sure we close these channels when we're done with them
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+
+	for g_id, r := range rs {
+		go func(i int, g_id int) {
+			semaphoreChan <- struct{}{}
+			r, err := addScore(r)
+			result := concurrentRes{i, s, err}
+			resultsChan <- &result
+			<-semaphoreChan
+		}(i, g_id)
+	}
+	for {
+		result := <-resultsChan
+		results = append(results, *result)
 		if len(results) == len(ids) {
 			break
 		}
@@ -223,21 +313,21 @@ func lineLooperz(s string) {
 }
 
 func grab(s string) (map[int]Line, map[int]shortScore) {
-	rs, _ := getLines(s)
+	rs, _ := req(s)
 	ids := idsFromLines(rs)
 	scs := getScores(ids, len(ids))
 	return rs, scs
 }
 
-func looperz(s string){
+func looperz(s string) {
 	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
-
+	
 	_, lineWriter := initCSV("lines2.csv", headers)
 	_, scoreWriter := initCSV("scores2.csv", scoreHeaders)
 
 	for {
-		rs, scs := grab(s)
+		rs, scs := grab(lineRoot + s)
 		rowsToWrite := rowsToCSV(rs)
 		scoresToWrite := scoresToCSV(scs)
 
@@ -249,5 +339,5 @@ func looperz(s string){
 func main() {
 
 	looperz("")
-	
+
 }
