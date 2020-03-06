@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+var drawSports = []string{"SOCC", "RUGU", "RUGL"}
+
 func parseOutcomes(os []Outcome) []float64 {
 	var decimals []float64
 	for _, o := range os {
@@ -46,8 +48,8 @@ func includes(vs []string, t string) bool {
 	return index_strs(vs, t) >= 0
 }
 
-func makeRow(e Event, drawSports []string) (Row, bool) {
-	var r Row
+func makeLine(e Event) (Line, bool) {
+	var r Line
 	var null_row = false
 	r.Sport = e.Sport
 	gameID, _ := strconv.Atoi(e.ID)
