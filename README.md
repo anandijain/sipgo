@@ -40,11 +40,13 @@ odds:
 
 ## TODO
 
+* separate live/pregame for req()
 * cloud sql upload
 * misc sports fix (tennis scores, boxing/mma/cricket odds)
 
 ## completed
 
+* added league and round info to Row
 * only writes changes
 * 3-way ML fix
 * scores using semaphores/concurrency

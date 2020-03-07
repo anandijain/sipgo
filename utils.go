@@ -312,3 +312,50 @@ func addScore(r Row) (Row, error) {
 	r.lastMod = s.LastUpdated
 	return r, err
 }
+
+
+func scoresToCSV(data map[int]shortScore) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := scoreToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+
+func lineToCSV(r Line) []string {
+	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
+		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
+	return ret
+}
+
+func linesToCSV(data map[int]Line) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := lineToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+func getLines(s string) (map[int]Line, error) {
+	ret, err := req(s)
+	rs := parseLines(ret)
+	return rs, err
+}
+
+func parseLines(b []byte) map[int]Line {
+	data := toJSON(b)
+	rs := make(map[int]Line)
+	// var events []Event
+	for _, ev := range data {
+		es := ev.Events
+		for _, e := range es {
+			r, null_row := makeLine(e)
+			if null_row == false {
+				rs[r.GameID] = r
+			}
+		}
+	}
+
+	return rs
+}

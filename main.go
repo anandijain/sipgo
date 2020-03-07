@@ -2,18 +2,46 @@
 package main
 
 import (
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 )
 
 var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 var scoreHeaders = []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
-var allHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status"}
+
+var allHeaders = []string{"sport", "league", "subleague", "game_id", "a_team", "h_team", "num_markets", "a_ml",
+	"h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts",
+	"h_pts", "status"}
+
+var schema = `CREATE TABLE rows(
+	id int NOT NULL AUTO_INCREMENT, 
+	sport varchar(4), 
+	league varchar(128), 
+	subleague varchar(128), 
+	game_id int, 
+	a_team varchar(64), 
+	h_team varchar(64), 
+	num_markets int, 
+	a_ml decimal, 
+	h_ml decimal, 
+	draw_ml decimal,  
+	game_start int, 
+	last_mod int,
+	period int,
+	secs int, 
+	is_ticking boolean,
+	a_pts int,
+	h_pts int,
+	status varchar(32),
+	PRIMARY KEY (id))`
 
 var lineRoot = "https://www.bovada.lv/services/sports/event/v2/events/A/description/"
 var scoreRoot = "https://www.bovada.lv/services/sports/results/api/v1/scores/"
@@ -27,6 +55,8 @@ type concurrentResRow struct {
 // Line for CSV headers len 17
 type Row struct {
 	Sport      string
+	League     string
+	Subleague  string
 	GameID     int
 	aTeam      string
 	hTeam      string
@@ -61,33 +91,11 @@ func scoreToCSV(s shortScore) []string {
 	return ret
 }
 
-func scoresToCSV(data map[int]shortScore) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := scoreToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
-func lineToCSV(r Line) []string {
-	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
-		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
-	return ret
-}
-
-func linesToCSV(data map[int]Line) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := lineToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
 func rowToCSV(r Row) []string {
 	ret := []string{
 		r.Sport,
+		r.League,
+		r.Subleague,
 		fmt.Sprint(r.GameID),
 		r.aTeam,
 		r.hTeam,
@@ -116,29 +124,6 @@ func rowsToCSV(data map[int]Row) [][]string {
 	return recs
 }
 
-func getLines(s string) (map[int]Line, error) {
-	ret, err := req(s)
-	rs := parseLines(ret)
-	return rs, err
-}
-
-func parseLines(b []byte) map[int]Line {
-	data := toJSON(b)
-	rs := make(map[int]Line)
-	// var events []Event
-	for _, ev := range data {
-		es := ev.Events
-		for _, e := range es {
-			r, null_row := makeLine(e)
-			if null_row == false {
-				rs[r.GameID] = r
-			}
-		}
-	}
-
-	return rs
-}
-
 func getLinesForRows(s string) (map[int]Row, error) {
 	ret, err := req(s)
 	rs := parseLinesToRows(ret)
@@ -151,15 +136,36 @@ func parseLinesToRows(b []byte) map[int]Row {
 	// var events []Event
 	for _, ev := range data {
 		es := ev.Events
+		cat := parsePaths(ev.Paths)
+		// for i, p := range ev.Paths{
+		// 	if p.PathType == "LEAGUE":
+		// }
 		for _, e := range es {
 			r, null_row := makeLineToRow(e)
 			if null_row == false {
+				r.League = cat[1]
+				r.Subleague = cat[2]
 				rs[r.GameID] = r
 			}
 		}
 	}
 
 	return rs
+}
+
+func parsePaths(ps []Path) [3]string {
+	// in order: sport, league, subleague
+	var ret [3]string
+	if len(ps) == 3 {
+		ret[0] = ps[2].Description
+		ret[1] = strings.Replace(ps[1].Description, ",", "", -1)
+		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
+	} else if len(ps) == 2 {
+		ret[0] = ps[1].Description
+		ret[1] = strings.Replace(ps[0].Description, ",", "", -1)
+		ret[2] = ""
+	}
+	return ret
 }
 
 func req(s string) ([]byte, error) {
@@ -288,7 +294,70 @@ func loop_n(s string, n int, fn string) {
 		rowWriter.WriteAll(rowsToWrite)
 	}
 }
+func makedb() *sql.DB {
+	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/hello")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// defer db.Close()
+	err = db.Ping()
+	if err != nil {
+		fmt.Println("ruh roh")
+	}
+
+	_, err = db.Exec("CREATE DATABASE testDB")
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Successfully created database..")
+	}
+	_, err = db.Exec("USE testDB")
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("DB selected successfully..")
+	}
+	return db
+}
+
+var insertRowsQuery = `INSERT INTO rows 
+(sport, league, subleague, game_id, a_team, h_team, num_markets, a_ml,
+	h_ml, draw_ml, game_start, last_mod, period, secs, is_ticking, a_pts,
+	h_pts, status)
+	VALUES(?)`
+
+func insertRows(db *sql.DB, rs []Row) {
+	for _, r := range rs {
+		stmt, err := db.Prepare(insertRowsQuery)
+		if err != nil {
+			log.Fatal(err)
+		}
+		res, err := stmt.Exec(
+			reflect.ValueOf(r))
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(res)
+	}
+}
+
+func makeRowsTable(db *sql.DB) error {
+	stmt, err := db.Prepare(schema)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	_, err = stmt.Exec()
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Table created successfully..")
+	}
+	return err
+}
 
 func main() {
-	looperz("", "rows.csv")
+	// looperz("soccer", "rows.csv")
+	db := makedb()
+
+	fmt.Println(db)
 }

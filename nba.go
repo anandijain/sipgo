@@ -1,6 +1,8 @@
 
 
 // for data.nba.com
+package main
+
 
 type NBA struct {
 	SportsContent struct {
