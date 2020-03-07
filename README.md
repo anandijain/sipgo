@@ -40,10 +40,11 @@ odds:
 
 ## TODO
 
-* store previous state, only write new data. attempt at fast differencing
 * cloud sql upload
+* misc sports fix (tennis scores, boxing/mma/cricket odds)
 
 ## completed
 
-* soccer fix
+* only writes changes
+* 3-way ML fix
 * scores using semaphores/concurrency

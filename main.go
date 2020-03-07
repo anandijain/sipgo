@@ -6,8 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
+	"time"
 )
 
 var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
@@ -300,17 +302,38 @@ func lineLooperz(s string) {
 
 func grabRows(s string) map[int]Row {
 	rs, _ := getLinesForRows(s)
-	rs = addScores(rs, len(rs))
+	rs = addScores(rs, 16)
 	return rs
+}
+
+func comp(prev map[int]Row, cur map[int]Row) map[int]Row {
+	to_write := make(map[int]Row)
+	for cur_id, r := range cur {
+		if !reflect.DeepEqual(r, prev[cur_id]) {
+			to_write[r.GameID] = r
+		}
+	}
+	return to_write
 }
 
 func looperz(s string, fn string) {
 
 	_, w := initCSV(fn, allHeaders)
+	url := lineRoot + s
+	prev := grabRows(url)
+	initWrite := rowsToCSV(prev)
+	w.WriteAll(initWrite)
+	cur := grabRows(url)
 
 	for {
-		rs := grabRows(lineRoot + s)
-		rowsToWrite := rowsToCSV(rs)
+		diff := comp(prev, cur)
+		rowsToWrite := rowsToCSV(diff)
+		fmt.Println(len(rowsToWrite), "# of changes", time.Now())
+		// for _, r := range rowsToWrite {
+		// 	fmt.Println(r)
+		// }
+		prev = cur
+		cur = grabRows(url)
 
 		w.WriteAll(rowsToWrite)
 	}
@@ -327,7 +350,5 @@ func loop_n(s string, n int, fn string) {
 }
 
 func main() {
-	// loop_n("tennis", 5)
-	looperz("", "alltest.csv")
-	// fmt.Println(rs)
+	looperz("", "rows.csv")
 }

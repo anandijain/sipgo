@@ -100,7 +100,6 @@ func makeLine(e Event) (Line, bool) {
 	r.gameStart = e.StartTime
 	r.NumMarkets = e.NumMarkets
 	if r.aTeam == "" {
-		fmt.Println("null row")
 		null_row = true
 	}
 	return r, null_row
@@ -157,7 +156,6 @@ func makeLineToRow(e Event) (Row, bool) {
 	r.gameStart = e.StartTime
 	r.NumMarkets = e.NumMarkets
 	if r.aTeam == "" {
-		fmt.Println("null row")
 		null_row = true
 	}
 	return r, null_row
