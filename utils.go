@@ -105,9 +105,8 @@ func makeLine(e Event) (Line, bool) {
 	return r, null_row
 }
 
-func addLineToRow(e Event, ps []Path) (Row, bool) {
-	
-	
+func makeLineToRow(e Event) (Row, bool) {
+	var r Row
 	var null_row = false
 	r.Sport = e.Sport
 	gameID, _ := strconv.Atoi(e.ID)

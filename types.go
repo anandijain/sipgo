@@ -98,7 +98,7 @@ type Path struct {
 	ID          string `json:"id"`
 	Link        string `json:"link"`
 	Description string `json:"description"`
-	PathType    string `json:"pathType"`
+	PathType    string `json:"type"`
 	SportCode   string `json:"sportCode"`
 	Order       int    `json:"order"`
 	Leaf        bool   `json:"leaf"`

@@ -17,8 +17,7 @@ import (
 
 var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 var scoreHeaders = []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
-
-var allHeaders = []string{"sport", "league", "subleague", "game_id", "a_team", "h_team", "num_markets", "a_ml",
+var allHeaders = []string{"index", "game_id", "sport", "league", "comp", "country", "region", "a_team", "h_team", "num_markets", "a_ml",
 	"h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts",
 	"h_pts", "status"}
 
@@ -53,7 +52,6 @@ type concurrentResRow struct {
 	err   error
 }
 
-// sport competition country league region
 // Line for CSV headers len 17
 type Row struct {
 	Sport      string
@@ -85,9 +83,10 @@ func rowToCSV(r Row, i int) []string {
 		fmt.Sprint(i),
 		fmt.Sprint(r.GameID),
 		r.Sport,
-		r.Game,
 		r.League,
-		r.Subleague,
+		r.Comp,
+		r.Country,
+		r.Region,
 		r.aTeam,
 		r.hTeam,
 		fmt.Sprint(r.NumMarkets),
@@ -130,20 +129,32 @@ func parseLinesToRows(b []byte) map[int]Row {
 	for _, ev := range data {
 		es := ev.Events
 		// cat := parsePaths(ev.Paths)
-		var strs []string
-		var r Row
-		for i := len(ev.Paths) - 1; i >= 0; i-- {
-			strs = append(strs, strings.Replace(ev.Paths[i].Description, ",", "", -1))
-			switch i {
-			case 0:
-
+		var categories Row
+		// r = parsePaths(r, ev.Paths)
+		for _, p := range ev.Paths {
+			switch t := p.PathType; t {
+			case "SPORT":
+				categories.Sport = strings.Replace(p.Description, ",", "", -1)
+			case "COUNTRY":
+				categories.Country = strings.Replace(p.Description, ",", "", -1)
+			case "REGION":
+				categories.Region = strings.Replace(p.Description, ",", "", -1)
+			case "LEAGUE":
+				categories.League = strings.Replace(p.Description, ",", "", -1)
+			case "COMPETITION":
+				categories.Comp = strings.Replace(p.Description, ",", "", -1)
 			}
 		}
+		// fmt.Println(categories)
 
-		// r := Row{Sport : strs[0], League : strs[1], Subleague : strs[2], Game : strs[3]}
 		for _, e := range es {
-			r, null_row := addLineToRow(e, ev.Paths)
+			r, null_row := makeLineToRow(e)
 			if null_row == false {
+				r.Sport = categories.Sport
+				r.Country = categories.Country
+				r.Region = categories.Region
+				r.League = categories.League
+				r.Comp = categories.Comp
 				rs[r.GameID] = r
 				fmt.Println(r)
 			}
@@ -151,31 +162,6 @@ func parseLinesToRows(b []byte) map[int]Row {
 	}
 
 	return rs
-}
-
-func parsePaths(ps []Path) [4]string {
-	// in order: sport, league, subleague
-	var ret [4]string
-
-	if len(ps) == 3 {
-		ret[0] = ps[2].Description
-		ret[1] = ""
-
-		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
-	} else if len(ps) == 2 {
-		ret[0] = ps[1].Description
-		ret[1] = ""
-		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
-		ret[3] = ""
-
-	} else if len(ps) == 4 {
-		// esports league country competition/game sport
-		ret[0] = ps[3].Description
-		ret[1] = strings.Replace(ps[0].Description, ",", "", -1)
-		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
-		ret[3] = strings.Replace(ps[0].Description, ",", "", -1)
-	}
-	return ret // sport, game, league,
 }
 
 func req(s string) ([]byte, error) {

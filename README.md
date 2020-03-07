@@ -40,12 +40,13 @@ odds:
 
 ## TODO
 
-* separate live/pregame for req()
+* there is a bottleneck in requesting the entire /sports/ page at once, to fix this concurrently request each sport individually, separate live/pregame for req()
 * cloud sql upload
 * misc sports fix (tennis scores, boxing/mma/cricket odds)
 
 ## completed
 
+* added region country and competition
 * added league and round info to Row
 * only writes changes
 * 3-way ML fix
