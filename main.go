@@ -20,6 +20,12 @@ type concurrentRes struct {
 	err   error
 }
 
+type concurrentResRow struct {
+	index int
+	res   Row
+	err   error
+}
+
 // Line for CSV headers len 10
 type Line struct {
 	Sport      string
@@ -85,44 +91,6 @@ func scoreToCSV(s shortScore) []string {
 	return ret
 }
 
-func rowToCSV(r Line) []string {
-	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
-		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
-	return ret
-}
-
-func rowToCSV(r Line) []string {
-	ret := []string{
-		r.Sport, 
-		fmt.Sprint(r.GameID), 
-		r.aTeam, 
-		r.hTeam, 
-		fmt.Sprint(r.NumMarkets), 
-		fmt.Sprint(r.aML), 
-		fmt.Sprint(r.hML), 
-		fmt.Sprint(r.drawML),
-		fmt.Sprint(r.gameStart),
-		fmt.Sprint(r.LastMod),
-		fmt.Sprint(s.Period),
-		fmt.Sprint(s.Seconds),
-		fmt.Sprint(s.IsTicking),
-		fmt.Sprint(s.aPts),
-		fmt.Sprint(s.hPts),
-		s.Status,
-		fmt.Sprint(s.lastMod)
-	}
-	return ret
-}
-
-func rowsToCSV(data map[int]Line) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := rowToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
 func scoresToCSV(data map[int]shortScore) [][]string {
 	var recs [][]string
 	for _, r := range data {
@@ -132,11 +100,62 @@ func scoresToCSV(data map[int]shortScore) [][]string {
 	return recs
 }
 
-func getLines(s string) (map[int]Line, error) {
-	ret, err = req()
+func lineToCSV(r Line) []string {
+	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
+		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
+	return ret
+}
 
+func linesToCSV(data map[int]Line) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := lineToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+
+func rowToCSV(r Row) []string {
+	ret := []string{
+		r.Sport,
+		fmt.Sprint(r.GameID),
+		r.aTeam,
+		r.hTeam,
+		fmt.Sprint(r.NumMarkets),
+		fmt.Sprint(r.aML),
+		fmt.Sprint(r.hML),
+		fmt.Sprint(r.drawML),
+		fmt.Sprint(r.gameStart),
+		fmt.Sprint(r.LastMod),
+		fmt.Sprint(r.Period),
+		fmt.Sprint(r.Seconds),
+		fmt.Sprint(r.IsTicking),
+		fmt.Sprint(r.aPts),
+		fmt.Sprint(r.hPts),
+		r.Status,
+		fmt.Sprint(r.lastMod)}
+	return ret
+}
+
+func rowsToCSV(data map[int]Row) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := rowToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+
+func getLines(s string) (map[int]Line, error) {
+	ret, err := req(s)
 	rs := parseLines(ret)
-	return rs, httperr
+	return rs, err
+}
+
+func getLinesForRows(s string) (map[int]Row, error) {
+	ret, err := req(s)
+	rs := parseLinesToRows(ret)
+	return rs, err
 }
 
 func parseLines(b []byte) map[int]Line {
@@ -156,33 +175,24 @@ func parseLines(b []byte) map[int]Line {
 	return rs
 }
 
-func addScore(r Row) Row {
-	ret, err = req(scoreRoot + r.GameID)
-	if err != nil {
-		fmt.Println("2")
-		log.Fatal(err)
-	}
-	gameID, _ := strconv.Atoi(s)
-	data := scoreToJSON(ret)
-
-	var r Row
-	r.Period = s.Clock.PeriodNumber
-	r.Seconds = s.Clock.RelativeGameTimeInSecs
-	r.IsTicking = s.Clock.IsTicking
-	// r.NumberOfPeriods = s.Clock.NumberOfPeriods
-	if len(s.Competitors) != 2 {
-		return r
+func parseLinesToRows(b []byte) map[int]Row {
+	data := toJSON(b)
+	rs := make(map[int]Row)
+	// var events []Event
+	for _, ev := range data {
+		es := ev.Events
+		for _, e := range es {
+			r, null_row := makeLineToRow(e)
+			if null_row == false {
+				rs[r.GameID] = r
+			}
+		}
 	}
 
-	if s.Competitors[0].Name == "" {
-		fmt.Println("broke")
-	}
-	r.aPts = s.LatestScore.Visitor
-	r.hPts = s.LatestScore.Home
-	r.Status = s.GameStatus
-	r.lastMod = s.LastUpdated
-	return r
+	return rs
 }
+
+
 
 func req(s string) ([]byte, error) {
 	res, httperr := http.Get(s)
@@ -190,21 +200,20 @@ func req(s string) ([]byte, error) {
 		fmt.Println("1")
 		log.Fatal(httperr)
 	}
-	ret, err := ioutil.ReadAll(res.Body)
+	ret, _ := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	return ret, httperr
 }
 
 func getScore(s string) (shortScore, error) {
-	ret, err = req(scoreRoot + s)
+	ret, err := req(scoreRoot + s)
 	if err != nil {
 		fmt.Println("2")
 		log.Fatal(err)
 	}
-	gameID, _ := strconv.Atoi(s)
-	data := scoreToJSON(ret)
+	data := scoreFromBytes(ret)
 	r := makeScore(data)
-	return r, httperr
+	return r, err
 }
 
 func idsFromLines(rs map[int]Line) []int {
@@ -252,31 +261,33 @@ func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
 	return scores
 }
 
-func getScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
-	var results []concurrentRes
-	scores := make(map[int]shortScore)
+func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
+	var results []concurrentResRow
+	scores := make(map[int]Row)
 	semaphoreChan := make(chan struct{}, concurrencyLimit)
-	resultsChan := make(chan *concurrentRes)
+	resultsChan := make(chan *concurrentResRow)
 
 	// make sure we close these channels when we're done with them
 	defer func() {
 		close(semaphoreChan)
 		close(resultsChan)
 	}()
-
-	for g_id, r := range rs {
-		go func(i int, g_id int) {
+	var err error
+	i := 0
+	for _, r := range rs {
+		go func(i int, r Row) {
 			semaphoreChan <- struct{}{}
-			r, err := addScore(r)
-			result := concurrentRes{i, s, err}
+			r, err = addScore(r)
+			result := concurrentResRow{i, r, err}
+			i++
 			resultsChan <- &result
 			<-semaphoreChan
-		}(i, g_id)
+		}(i, r)
 	}
 	for {
 		result := <-resultsChan
 		results = append(results, *result)
-		if len(results) == len(ids) {
+		if len(results) == len(rs) {
 			break
 		}
 	}
@@ -289,6 +300,31 @@ func getScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
 	return scores
 }
 
+func addScore(r Row) (Row, error) {
+	ret, err := req(scoreRoot + strconv.Itoa(r.GameID))
+	if err != nil {
+		fmt.Println("2")
+		log.Fatal(err)
+	}
+	s := scoreFromBytes(ret)
+
+	r.Period = s.Clock.PeriodNumber
+	r.Seconds = s.Clock.RelativeGameTimeInSecs
+	r.IsTicking = s.Clock.IsTicking
+	if len(s.Competitors) != 2 {
+		return r, err
+	}
+
+	if s.Competitors[0].Name == "" {
+		fmt.Println("broke")
+	}
+	r.aPts = s.LatestScore.Visitor
+	r.hPts = s.LatestScore.Home
+	r.Status = s.GameStatus
+	r.lastMod = s.LastUpdated
+	return r, err
+}
+
 func lineLooperz(s string) {
 	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 	_, w := initCSV("lines.csv", headers)
@@ -299,7 +335,7 @@ func lineLooperz(s string) {
 	i := 0
 	for {
 		lines, _ := getLines(s)
-		to_write := rowsToCSV(lines)
+		to_write := linesToCSV(lines)
 		w.WriteAll(to_write)
 
 		i = i + 1
@@ -312,32 +348,47 @@ func lineLooperz(s string) {
 
 }
 
-func grab(s string) (map[int]Line, map[int]shortScore) {
-	rs, _ := req(s)
-	ids := idsFromLines(rs)
-	scs := getScores(ids, len(ids))
-	return rs, scs
+// func grab(s string) (map[int]Line, map[int]shortScore) {
+// 	rs, _ := req(s)
+// 	rs = addScores(rs, len(rs))
+// 	return rs, scs
+// }
+
+func grabRows(s string) map[int]Row {
+	rs, _ := getLinesForRows(s)
+	rs = addScores(rs, len(rs))
+	return rs
 }
 
-func looperz(s string) {
-	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
-	scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod"}
-	
-	_, lineWriter := initCSV("lines2.csv", headers)
-	_, scoreWriter := initCSV("scores2.csv", scoreHeaders)
+func looperz(s string, fn string) {
+	// headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
+	// scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
+
+	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
+	_, rowWriter := initCSV(fn, headers)
+	// _, scoreWriter := initCSV("scores2.csv", scoreHeaders)
 
 	for {
-		rs, scs := grab(lineRoot + s)
+		rs := grabRows(lineRoot + s)
 		rowsToWrite := rowsToCSV(rs)
-		scoresToWrite := scoresToCSV(scs)
+		// scoresToWrite := scoresToCSV(scs)
 
-		lineWriter.WriteAll(rowsToWrite)
-		scoreWriter.WriteAll(scoresToWrite)
+		rowWriter.WriteAll(rowsToWrite)
+	}
+}
+
+func loop_n(s string, n int, fn string) {
+	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
+	_, rowWriter := initCSV(fn, headers)
+
+	for i:=1; i<=n; i++{
+		rs := grabRows(lineRoot + s)
+		rowsToWrite := rowsToCSV(rs)
+		rowWriter.WriteAll(rowsToWrite)
 	}
 }
 
 func main() {
-
-	looperz("")
-
+	 loop_n("tennis", 5)
+	// fmt.Println(rs)
 }

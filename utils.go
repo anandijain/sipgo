@@ -105,6 +105,63 @@ func makeLine(e Event) (Line, bool) {
 	return r, null_row
 }
 
+func makeLineToRow(e Event) (Row, bool) {
+	var r Row
+	var null_row = false
+	r.Sport = e.Sport
+	gameID, _ := strconv.Atoi(e.ID)
+	r.GameID = gameID
+
+	if len(e.Competitors) == 2 {
+		if e.AwayTeamFirst {
+			r.aTeam = e.Competitors[0].Name
+			r.hTeam = e.Competitors[1].Name
+		} else {
+			r.aTeam = e.Competitors[1].Name
+			r.hTeam = e.Competitors[0].Name
+		}
+	} else {
+		null_row = true
+	}
+	mkts := e.DisplayGroups[0].Markets
+	mainMkts := getMainMarkets(mkts)
+	var mls []Outcome
+	if includes(drawSports, r.Sport) {
+		mls = mainMkts["3-Way Moneyline"].Outcomes
+	} else {
+		mls = mainMkts["Moneyline"].Outcomes
+	}
+	// spreads := mainMkts["Point Spread"].Outcomes
+	parsedMLs := parseOutcomes(mls)
+	// parsedSpreads := parseOutcomes(spreads)
+	if r.Sport == "SOCC" {
+		if len(parsedMLs) == 3 {
+			r.aML = parsedMLs[0]
+			r.hML = parsedMLs[1]
+			r.drawML = parsedMLs[2]
+		} else {
+			return r, null_row
+		}
+	} else {
+		if len(parsedMLs) == 2 {
+			r.aML = parsedMLs[0]
+			r.hML = parsedMLs[1]
+			r.drawML = 0.
+		} else {
+			return r, null_row
+		}
+	}
+
+	r.LastMod = e.LastModified
+	r.gameStart = e.StartTime
+	r.NumMarkets = e.NumMarkets
+	if r.aTeam == "" {
+		fmt.Println("null row")
+		null_row = true
+	}
+	return r, null_row
+}
+
 func makeScore(s Score) shortScore {
 	var r shortScore
 	r.Period = s.Clock.PeriodNumber
@@ -164,7 +221,7 @@ func toJSON(b []byte) []Competition {
 	return c
 }
 
-func scoreToJSON(b []byte) Score {
+func scoreFromBytes(b []byte) Score {
 	retString := string(b)
 	dec := json.NewDecoder(strings.NewReader(retString))
 	var s Score
