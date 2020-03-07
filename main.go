@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"time"
 )
+
+var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
+var scoreHeaders = []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
+var allHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
 
 var lineRoot = "https://www.bovada.lv/services/sports/event/v2/events/A/description/"
 var scoreRoot = "https://www.bovada.lv/services/sports/results/api/v1/scores/"
@@ -152,12 +155,6 @@ func getLines(s string) (map[int]Line, error) {
 	return rs, err
 }
 
-func getLinesForRows(s string) (map[int]Row, error) {
-	ret, err := req(s)
-	rs := parseLinesToRows(ret)
-	return rs, err
-}
-
 func parseLines(b []byte) map[int]Line {
 	data := toJSON(b)
 	rs := make(map[int]Line)
@@ -173,6 +170,12 @@ func parseLines(b []byte) map[int]Line {
 	}
 
 	return rs
+}
+
+func getLinesForRows(s string) (map[int]Row, error) {
+	ret, err := req(s)
+	rs := parseLinesToRows(ret)
+	return rs, err
 }
 
 func parseLinesToRows(b []byte) map[int]Row {
@@ -191,8 +194,6 @@ func parseLinesToRows(b []byte) map[int]Row {
 
 	return rs
 }
-
-
 
 func req(s string) ([]byte, error) {
 	res, httperr := http.Get(s)
@@ -222,43 +223,6 @@ func idsFromLines(rs map[int]Line) []int {
 		ids = append(ids, k)
 	}
 	return ids
-}
-
-func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
-	var results []concurrentRes
-	scores := make(map[int]shortScore)
-	semaphoreChan := make(chan struct{}, concurrencyLimit)
-	resultsChan := make(chan *concurrentRes)
-
-	// make sure we close these channels when we're done with them
-	defer func() {
-		close(semaphoreChan)
-		close(resultsChan)
-	}()
-
-	for i, g_id := range ids {
-		go func(i int, g_id int) {
-			semaphoreChan <- struct{}{}
-			s, err := getScore(strconv.Itoa(g_id))
-			result := concurrentRes{i, s, err}
-			resultsChan <- &result
-			<-semaphoreChan
-		}(i, g_id)
-	}
-	for {
-		result := <-resultsChan
-		results = append(results, *result)
-		if len(results) == len(ids) {
-			break
-		}
-	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].index < results[j].index
-	})
-	for _, res := range results {
-		scores[res.res.GameID] = res.res
-	}
-	return scores
 }
 
 func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
@@ -326,33 +290,13 @@ func addScore(r Row) (Row, error) {
 }
 
 func lineLooperz(s string) {
-	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
-	_, w := initCSV("lines.csv", headers)
-	w.Flush()
-	prev := time.Now()
-	now := time.Now()
-	delta := now.Sub(prev)
-	i := 0
+	_, w := initCSV("lines.csv", lineHeaders)
 	for {
 		lines, _ := getLines(s)
 		to_write := linesToCSV(lines)
 		w.WriteAll(to_write)
-
-		i = i + 1
-		delta = now.Sub(prev)
-		prev = now
-		now = time.Now()
-		fmt.Println("%s", i, delta)
-		time.Sleep(time.Duration(10) * time.Second)
 	}
-
 }
-
-// func grab(s string) (map[int]Line, map[int]shortScore) {
-// 	rs, _ := req(s)
-// 	rs = addScores(rs, len(rs))
-// 	return rs, scs
-// }
 
 func grabRows(s string) map[int]Row {
 	rs, _ := getLinesForRows(s)
@@ -361,27 +305,21 @@ func grabRows(s string) map[int]Row {
 }
 
 func looperz(s string, fn string) {
-	// headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
-	// scoreHeaders := []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
 
-	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
-	_, rowWriter := initCSV(fn, headers)
-	// _, scoreWriter := initCSV("scores2.csv", scoreHeaders)
+	_, w := initCSV(fn, allHeaders)
 
 	for {
 		rs := grabRows(lineRoot + s)
 		rowsToWrite := rowsToCSV(rs)
-		// scoresToWrite := scoresToCSV(scs)
 
-		rowWriter.WriteAll(rowsToWrite)
+		w.WriteAll(rowsToWrite)
 	}
 }
 
 func loop_n(s string, n int, fn string) {
-	headers := []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
-	_, rowWriter := initCSV(fn, headers)
+	_, rowWriter := initCSV(fn, allHeaders)
 
-	for i:=1; i<=n; i++{
+	for i := 1; i <= n; i++ {
 		rs := grabRows(lineRoot + s)
 		rowsToWrite := rowsToCSV(rs)
 		rowWriter.WriteAll(rowsToWrite)
@@ -389,6 +327,7 @@ func loop_n(s string, n int, fn string) {
 }
 
 func main() {
-	 loop_n("tennis", 5)
+	// loop_n("tennis", 5)
+	looperz("", "alltest.csv")
 	// fmt.Println(rs)
 }

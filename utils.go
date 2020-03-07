@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -250,4 +251,41 @@ func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	w.Write(header)
 	// defer w.Flush()
 	return f, w
+}
+
+func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
+	var results []concurrentRes
+	scores := make(map[int]shortScore)
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+	resultsChan := make(chan *concurrentRes)
+
+	// make sure we close these channels when we're done with them
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+
+	for i, g_id := range ids {
+		go func(i int, g_id int) {
+			semaphoreChan <- struct{}{}
+			s, err := getScore(strconv.Itoa(g_id))
+			result := concurrentRes{i, s, err}
+			resultsChan <- &result
+			<-semaphoreChan
+		}(i, g_id)
+	}
+	for {
+		result := <-resultsChan
+		results = append(results, *result)
+		if len(results) == len(ids) {
+			break
+		}
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+	for _, res := range results {
+		scores[res.res.GameID] = res.res
+	}
+	return scores
 }
