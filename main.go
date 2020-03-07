@@ -3,7 +3,6 @@ package main
 
 import (
 	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
@@ -52,11 +53,14 @@ type concurrentResRow struct {
 	err   error
 }
 
+// sport competition country league region
 // Line for CSV headers len 17
 type Row struct {
 	Sport      string
+	Comp       string
+	Country    string
 	League     string
-	Subleague  string
+	Region     string
 	GameID     int
 	aTeam      string
 	hTeam      string
@@ -75,28 +79,15 @@ type Row struct {
 	lastMod    string
 }
 
-func scoreToCSV(s shortScore) []string {
+// league country competition/game sport
+func rowToCSV(r Row, i int) []string {
 	ret := []string{
-		fmt.Sprint(s.GameID),
-		s.aTeam,
-		s.hTeam,
-		fmt.Sprint(s.Period),
-		fmt.Sprint(s.Seconds),
-		fmt.Sprint(s.IsTicking),
-		fmt.Sprint(s.aPts),
-		fmt.Sprint(s.hPts),
-		s.Status,
-		fmt.Sprint(s.lastMod),
-	}
-	return ret
-}
-
-func rowToCSV(r Row) []string {
-	ret := []string{
+		fmt.Sprint(i),
+		fmt.Sprint(r.GameID),
 		r.Sport,
+		r.Game,
 		r.League,
 		r.Subleague,
-		fmt.Sprint(r.GameID),
 		r.aTeam,
 		r.hTeam,
 		fmt.Sprint(r.NumMarkets),
@@ -117,9 +108,11 @@ func rowToCSV(r Row) []string {
 
 func rowsToCSV(data map[int]Row) [][]string {
 	var recs [][]string
+	i := 0
 	for _, r := range data {
-		row := rowToCSV(r)
+		row := rowToCSV(r, i)
 		recs = append(recs, row)
+		i++
 	}
 	return recs
 }
@@ -136,16 +129,23 @@ func parseLinesToRows(b []byte) map[int]Row {
 	// var events []Event
 	for _, ev := range data {
 		es := ev.Events
-		cat := parsePaths(ev.Paths)
-		// for i, p := range ev.Paths{
-		// 	if p.PathType == "LEAGUE":
-		// }
+		// cat := parsePaths(ev.Paths)
+		var strs []string
+		var r Row
+		for i := len(ev.Paths) - 1; i >= 0; i-- {
+			strs = append(strs, strings.Replace(ev.Paths[i].Description, ",", "", -1))
+			switch i {
+			case 0:
+
+			}
+		}
+
+		// r := Row{Sport : strs[0], League : strs[1], Subleague : strs[2], Game : strs[3]}
 		for _, e := range es {
-			r, null_row := makeLineToRow(e)
+			r, null_row := addLineToRow(e, ev.Paths)
 			if null_row == false {
-				r.League = cat[1]
-				r.Subleague = cat[2]
 				rs[r.GameID] = r
+				fmt.Println(r)
 			}
 		}
 	}
@@ -153,19 +153,29 @@ func parseLinesToRows(b []byte) map[int]Row {
 	return rs
 }
 
-func parsePaths(ps []Path) [3]string {
+func parsePaths(ps []Path) [4]string {
 	// in order: sport, league, subleague
-	var ret [3]string
+	var ret [4]string
+
 	if len(ps) == 3 {
 		ret[0] = ps[2].Description
-		ret[1] = strings.Replace(ps[1].Description, ",", "", -1)
+		ret[1] = ""
+
 		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
 	} else if len(ps) == 2 {
 		ret[0] = ps[1].Description
+		ret[1] = ""
+		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
+		ret[3] = ""
+
+	} else if len(ps) == 4 {
+		// esports league country competition/game sport
+		ret[0] = ps[3].Description
 		ret[1] = strings.Replace(ps[0].Description, ",", "", -1)
-		ret[2] = ""
+		ret[2] = strings.Replace(ps[0].Description, ",", "", -1)
+		ret[3] = strings.Replace(ps[0].Description, ",", "", -1)
 	}
-	return ret
+	return ret // sport, game, league,
 }
 
 func req(s string) ([]byte, error) {
@@ -299,7 +309,7 @@ func makedb() *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// defer db.Close()
+	defer db.Close()
 	err = db.Ping()
 	if err != nil {
 		fmt.Println("ruh roh")
@@ -356,8 +366,7 @@ func makeRowsTable(db *sql.DB) error {
 }
 
 func main() {
-	// looperz("soccer", "rows.csv")
-	db := makedb()
-
-	fmt.Println(db)
+	looperz("", "wleagues.csv")
+	// db := makedb()
+	// fmt.Println(db)
 }

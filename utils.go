@@ -105,8 +105,9 @@ func makeLine(e Event) (Line, bool) {
 	return r, null_row
 }
 
-func makeLineToRow(e Event) (Row, bool) {
-	var r Row
+func addLineToRow(e Event, ps []Path) (Row, bool) {
+	
+	
 	var null_row = false
 	r.Sport = e.Sport
 	gameID, _ := strconv.Atoi(e.ID)
@@ -358,4 +359,20 @@ func parseLines(b []byte) map[int]Line {
 	}
 
 	return rs
+}
+
+func scoreToCSV(s shortScore) []string {
+	ret := []string{
+		fmt.Sprint(s.GameID),
+		s.aTeam,
+		s.hTeam,
+		fmt.Sprint(s.Period),
+		fmt.Sprint(s.Seconds),
+		fmt.Sprint(s.IsTicking),
+		fmt.Sprint(s.aPts),
+		fmt.Sprint(s.hPts),
+		s.Status,
+		fmt.Sprint(s.lastMod),
+	}
+	return ret
 }
