@@ -287,3 +287,28 @@ func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
 	}
 	return scores
 }
+
+func addScore(r Row) (Row, error) {
+	ret, err := req(scoreRoot + strconv.Itoa(r.GameID))
+	if err != nil {
+		fmt.Println("2")
+		log.Fatal(err)
+	}
+	s := scoreFromBytes(ret)
+
+	r.Period = s.Clock.PeriodNumber
+	r.Seconds = s.Clock.RelativeGameTimeInSecs
+	r.IsTicking = s.Clock.IsTicking
+	if len(s.Competitors) != 2 {
+		return r, err
+	}
+
+	if s.Competitors[0].Name == "" {
+		fmt.Println("broke")
+	}
+	r.aPts = s.LatestScore.Visitor
+	r.hPts = s.LatestScore.Home
+	r.Status = s.GameStatus
+	r.lastMod = s.LastUpdated
+	return r, err
+}

@@ -8,55 +8,20 @@ import (
 	"net/http"
 	"reflect"
 	"sort"
-	"strconv"
 	"time"
 )
 
 var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
 var scoreHeaders = []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
-var allHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
+var allHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts", "h_pts", "status"}
 
 var lineRoot = "https://www.bovada.lv/services/sports/event/v2/events/A/description/"
 var scoreRoot = "https://www.bovada.lv/services/sports/results/api/v1/scores/"
-
-type concurrentRes struct {
-	index int
-	res   shortScore
-	err   error
-}
 
 type concurrentResRow struct {
 	index int
 	res   Row
 	err   error
-}
-
-// Line for CSV headers len 10
-type Line struct {
-	Sport      string
-	GameID     int
-	aTeam      string
-	hTeam      string
-	NumMarkets int
-	aML        float64
-	hML        float64
-	drawML     float64
-	gameStart  int
-	LastMod    int
-}
-
-// score for CSV len 10
-type shortScore struct {
-	GameID    int
-	aTeam     string
-	hTeam     string
-	Period    int
-	Seconds   int
-	IsTicking bool
-	aPts      string
-	hPts      string
-	Status    string
-	lastMod   string
 }
 
 // Line for CSV headers len 17
@@ -264,31 +229,6 @@ func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
 		scores[res.res.GameID] = res.res
 	}
 	return scores
-}
-
-func addScore(r Row) (Row, error) {
-	ret, err := req(scoreRoot + strconv.Itoa(r.GameID))
-	if err != nil {
-		fmt.Println("2")
-		log.Fatal(err)
-	}
-	s := scoreFromBytes(ret)
-
-	r.Period = s.Clock.PeriodNumber
-	r.Seconds = s.Clock.RelativeGameTimeInSecs
-	r.IsTicking = s.Clock.IsTicking
-	if len(s.Competitors) != 2 {
-		return r, err
-	}
-
-	if s.Competitors[0].Name == "" {
-		fmt.Println("broke")
-	}
-	r.aPts = s.LatestScore.Visitor
-	r.hPts = s.LatestScore.Home
-	r.Status = s.GameStatus
-	r.lastMod = s.LastUpdated
-	return r, err
 }
 
 func lineLooperz(s string) {

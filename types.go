@@ -157,3 +157,37 @@ type Score struct {
 	EventDescription        string            `json:"eventDescription"`
 	DisplayVisitorTeamFirst bool              `json:"displayVisitorTeamFirst"`
 }
+
+type concurrentRes struct {
+	index int
+	res   shortScore
+	err   error
+}
+
+// Line for CSV headers len 10
+type Line struct {
+	Sport      string
+	GameID     int
+	aTeam      string
+	hTeam      string
+	NumMarkets int
+	aML        float64
+	hML        float64
+	drawML     float64
+	gameStart  int
+	LastMod    int
+}
+
+// score for CSV len 10
+type shortScore struct {
+	GameID    int
+	aTeam     string
+	hTeam     string
+	Period    int
+	Seconds   int
+	IsTicking bool
+	aPts      string
+	hPts      string
+	Status    string
+	lastMod   string
+}
