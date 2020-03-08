@@ -1,3 +1,12 @@
+package main
+
+
+import (
+	"fmt"
+	"log"
+	"sort"
+	"strconv"
+)
 
 func makeLine(e Event) (Line, bool) {
 	var r Line
@@ -114,6 +123,42 @@ func makeScore(s Score) shortScore {
 	return r
 }
 
+func getScore(s string) (shortScore, error) {
+	ret, err := req(scoreRoot + s)
+	if err != nil {
+		fmt.Println("2")
+		log.Fatal(err)
+	}
+	data := scoreFromBytes(ret)
+	r := makeScore(data)
+	return r, err
+}
+
+func lineLooperz(s string) {
+	_, w := initCSV("lines.csv", lineHeaders)
+	for {
+		lines, _ := getLines(s)
+		to_write := linesToCSV(lines)
+		w.WriteAll(to_write)
+	}
+}
+
+func parseLines(b []byte) map[int]Line {
+	data := toJSON(b)
+	rs := make(map[int]Line)
+	// var events []Event
+	for _, ev := range data {
+		es := ev.Events
+		for _, e := range es {
+			r, null_row := makeLine(e)
+			if null_row == false {
+				rs[r.GameID] = r
+			}
+		}
+	}
+
+	return rs
+}
 
 func scoreToCSV(s shortScore) []string {
 	ret := []string{
@@ -130,3 +175,33 @@ func scoreToCSV(s shortScore) []string {
 	}
 	return ret
 }
+
+func scoresToCSV(data map[int]shortScore) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := scoreToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+
+func getLines(s string) (map[int]Line, error) {
+	ret, err := req(s)
+	rs := parseLines(ret)
+	return rs, err
+}
+func lineToCSV(r Line) []string {
+	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
+		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
+	return ret
+}
+
+func linesToCSV(data map[int]Line) [][]string {
+	var recs [][]string
+	for _, r := range data {
+		row := lineToCSV(r)
+		recs = append(recs, row)
+	}
+	return recs
+}
+

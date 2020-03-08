@@ -25,8 +25,8 @@ type Row struct {
 	Period     int
 	Seconds    int
 	IsTicking  bool
-	aPts       string
-	hPts       string
+	aPts       int
+	hPts       int
 	Status     string
 	lastMod    string
 }

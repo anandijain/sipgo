@@ -1,3 +1,10 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+)
 
 func initDB(name string) *sql.DB {
 	db, err := sql.Open("mysql", "root:@/rows")
@@ -32,20 +39,35 @@ func useDB(db *sql.DB, name string) {
 	}
 }
 
+var insertRowsQuery = `INSERT INTO rows 
+	(
+		game_id, sport, league, comp, country, region, a_team, 
+		h_team, num_markets, a_ml, h_ml, draw_ml, game_start, 
+		last_mod, period, secs, is_ticking, a_pts, h_pts, status
+	) 
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-var insertRowsQuery = "INSERT INTO rows VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
-var insertRowsQuery2 = `INSERT INTO rows (game_id, sport, a_team, h_team, num_markets, a_ml, h_ml, draw_ml)
+var insertRowsQuery2 = `INSERT INTO rows 
+(game_id, sport, a_team, h_team, num_markets, a_ml, h_ml, draw_ml)
 VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
 
 func insertRows(db *sql.DB, rs map[int]Row) {
 	for _, r := range rs {
 		stmt, err := db.Prepare(insertRowsQuery)
 		if err != nil {
+			fmt.Println("prep error")
 			log.Fatal(err)
 		}
-		
-		fmt.Println(r.aTeam)
+
+		// fmt.Println(fmt.Sprint(r.aTeam))
+		// fmt.Println(r.aML)
+		// if r.aPts == '' {
+		// 	r.aPts = 0
+		// }
+		// if r.hPts == '' {
+		// 	r.hPts = 0
+		// }
+		// fmt.Println(r.gameStart)
 		_, err = stmt.Exec(
 			r.GameID,
 			r.Sport,
@@ -66,10 +88,10 @@ func insertRows(db *sql.DB, rs map[int]Row) {
 			r.IsTicking,
 			r.aPts,
 			r.hPts,
-			r.Status,
-			r.lastMod)
+			r.Status)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println("write error", err)
+			// log.Fatal("write error:", err)
 		}
 		// fmt.Println(res)
 	}

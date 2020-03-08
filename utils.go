@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -35,14 +36,14 @@ var schema = `CREATE TABLE rows(
 	a_ml float, 
 	h_ml float, 
 	draw_ml float,  
-	game_start int, 
-	last_mod int,
+	game_start bigint, 
+	last_mod bigint,
 	period int,
 	secs int, 
 	is_ticking boolean,
 	a_pts int,
 	h_pts int,
-	status varchar(32)
+	status varchar(32),
 	PRIMARY KEY (id))`
 
 func parseOutcomes(os []Outcome) []float64 {
@@ -67,6 +68,7 @@ func index_strs(vs []string, t string) int {
 	}
 	return -1
 }
+
 func includes(vs []string, t string) bool {
 	return index_strs(vs, t) >= 0
 }
@@ -195,6 +197,44 @@ func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	return f, w
 }
 
+func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
+	var results []concurrentResRow
+	scores := make(map[int]Row)
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+	resultsChan := make(chan *concurrentResRow)
+
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+	var err error
+	i := 0
+	for _, r := range rs {
+		go func(i int, r Row) {
+			semaphoreChan <- struct{}{}
+			r, err = addScore(r)
+			result := concurrentResRow{i, r, err}
+			i++
+			resultsChan <- &result
+			<-semaphoreChan
+		}(i, r)
+	}
+	for {
+		result := <-resultsChan
+		results = append(results, *result)
+		if len(results) == len(rs) {
+			break
+		}
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+	for _, res := range results {
+		scores[res.res.GameID] = res.res
+	}
+	return scores
+}
+
 func addScore(r Row) (Row, error) {
 	ret, err := req(scoreRoot + strconv.Itoa(r.GameID))
 	if err != nil {
@@ -213,58 +253,12 @@ func addScore(r Row) (Row, error) {
 	if s.Competitors[0].Name == "" {
 		fmt.Println("broke")
 	}
-	r.aPts = s.LatestScore.Visitor
-	r.hPts = s.LatestScore.Home
+
+	r.aPts, err = strconv.Atoi(s.LatestScore.Visitor)
+	r.hPts, err = strconv.Atoi(s.LatestScore.Home)
 	r.Status = s.GameStatus
 	r.lastMod = s.LastUpdated
 	return r, err
-}
-
-func scoresToCSV(data map[int]shortScore) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := scoreToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
-func lineToCSV(r Line) []string {
-	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
-		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
-	return ret
-}
-
-func linesToCSV(data map[int]Line) [][]string {
-	var recs [][]string
-	for _, r := range data {
-		row := lineToCSV(r)
-		recs = append(recs, row)
-	}
-	return recs
-}
-
-func getLines(s string) (map[int]Line, error) {
-	ret, err := req(s)
-	rs := parseLines(ret)
-	return rs, err
-}
-
-func parseLines(b []byte) map[int]Line {
-	data := toJSON(b)
-	rs := make(map[int]Line)
-	// var events []Event
-	for _, ev := range data {
-		es := ev.Events
-		for _, e := range es {
-			r, null_row := makeLine(e)
-			if null_row == false {
-				rs[r.GameID] = r
-			}
-		}
-	}
-
-	return rs
 }
 
 // league country competition/game sport
@@ -313,7 +307,6 @@ func rowsToCSVFormat(data map[int]Row) [][]string {
 	return recs
 }
 
-
 func loop_n(s string, n int, fn string) {
 	_, rowWriter := initCSV(fn, allHeaders)
 
@@ -322,4 +315,29 @@ func loop_n(s string, n int, fn string) {
 		rowsToWrite := rowsToCSVFormat(rs)
 		rowWriter.WriteAll(rowsToWrite)
 	}
+}
+
+func idsFromLines(rs map[int]Line) []int {
+	var ids []int
+	for k := range rs {
+		ids = append(ids, k)
+	}
+	return ids
+}
+
+func parsePaths(ps []Path) Row {
+	var categories Row
+	for _, p := range ps {
+		switch t := p.PathType; t {
+		case "COUNTRY":
+			categories.Country = strings.Replace(p.Description, ",", "", -1)
+		case "REGION":
+			categories.Region = strings.Replace(p.Description, ",", "", -1)
+		case "LEAGUE":
+			categories.League = strings.Replace(p.Description, ",", "", -1)
+		case "COMPETITION":
+			categories.Comp = strings.Replace(p.Description, ",", "", -1)
+		}
+	}
+	return categories
 }
