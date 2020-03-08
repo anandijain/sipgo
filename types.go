@@ -1,5 +1,36 @@
 package main
 
+type concurrentResRow struct {
+	index int
+	res   Row
+	err   error
+}
+
+// Line for CSV headers len 17
+type Row struct {
+	GameID     int
+	Sport      string
+	League     string
+	Comp       string
+	Country    string
+	Region     string
+	aTeam      string
+	hTeam      string
+	NumMarkets int
+	aML        float64
+	hML        float64
+	drawML     float64
+	gameStart  int
+	LastMod    int
+	Period     int
+	Seconds    int
+	IsTicking  bool
+	aPts       string
+	hPts       string
+	Status     string
+	lastMod    string
+}
+
 // Sport : specifying game
 type Sport struct {
 	Competitions []Competition `json:""`
@@ -190,4 +221,48 @@ type shortScore struct {
 	hPts      string
 	Status    string
 	lastMod   string
+}
+
+// https://shikenso.com/api/v2/tournaments?token=1111
+
+type ShikensoTeam struct {
+	Name          string `json:"name"`
+	Abbrev        string `json:"abbrev"`
+	TeamLogoLarge string `json:"team_logo_large"`
+	TeamLogo      string `json:"team_logo"`
+}
+
+type Tourney []struct {
+	WebsiteLink string `json:"website_link,omitempty"`
+	Country     string `json:"country"`
+	Image       string `json:"image"`
+	Teams       []struct {
+		Players []struct {
+		} `json:"players"`
+	} `json:"teams"`
+	Prizepoolsum string `json:"prizepoolsum"`
+	Start        int    `json:"start"`
+	WikiLink     string `json:"wiki_link"`
+	GameTitle    string `json:"game_title"`
+	Type         string `json:"type"`
+	Title        string `json:"title"`
+	TournamentID int    `json:"tournament_id"`
+	Tier         string `json:"tier"`
+	Series       []struct {
+		Name string `json:"name"`
+	} `json:"series,omitempty"`
+	Prizepool []PrizePool
+	End       int       `json:"end"`
+	Sponsors  []Sponsor `json:"sponsors,omitempty"`
+}
+
+type PrizePool struct {
+	Place int          `json:"place"`
+	Team  ShikensoTeam `json:"team"`
+	Prize int          `json:"prize"`
+}
+
+type Sponsor struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }

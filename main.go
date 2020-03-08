@@ -2,12 +2,10 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -15,148 +13,44 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var lineHeaders = []string{"sport", "game_id", "a_team", "h_team", "num_markets", "a_ml", "h_ml", "draw_ml", "last_mod"}
-var scoreHeaders = []string{"game_id", "a_team", "h_team", "period", "secs", "is_ticking", "a_pts", "h_pts", "status", "last_mod_score"}
-var allHeaders = []string{"index", "game_id", "sport", "league", "comp", "country", "region", "a_team", "h_team", "num_markets", "a_ml",
-	"h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts",
-	"h_pts", "status"}
-
-var schema = `CREATE TABLE rows(
-	id int NOT NULL AUTO_INCREMENT, 
-	sport varchar(4), 
-	league varchar(128), 
-	subleague varchar(128), 
-	game_id int, 
-	a_team varchar(64), 
-	h_team varchar(64), 
-	num_markets int, 
-	a_ml decimal, 
-	h_ml decimal, 
-	draw_ml decimal,  
-	game_start int, 
-	last_mod int,
-	period int,
-	secs int, 
-	is_ticking boolean,
-	a_pts int,
-	h_pts int,
-	status varchar(32),
-	PRIMARY KEY (id))`
-
-var lineRoot = "https://www.bovada.lv/services/sports/event/v2/events/A/description/"
-var scoreRoot = "https://www.bovada.lv/services/sports/results/api/v1/scores/"
-
-type concurrentResRow struct {
-	index int
-	res   Row
-	err   error
-}
-
-// Line for CSV headers len 17
-type Row struct {
-	Sport      string
-	Comp       string
-	Country    string
-	League     string
-	Region     string
-	GameID     int
-	aTeam      string
-	hTeam      string
-	NumMarkets int
-	aML        float64
-	hML        float64
-	drawML     float64
-	gameStart  int
-	LastMod    int
-	Period     int
-	Seconds    int
-	IsTicking  bool
-	aPts       string
-	hPts       string
-	Status     string
-	lastMod    string
-}
-
-// league country competition/game sport
-func rowToCSV(r Row, i int) []string {
-	ret := []string{
-		fmt.Sprint(i),
-		fmt.Sprint(r.GameID),
-		r.Sport,
-		r.League,
-		r.Comp,
-		r.Country,
-		r.Region,
-		r.aTeam,
-		r.hTeam,
-		fmt.Sprint(r.NumMarkets),
-		fmt.Sprint(r.aML),
-		fmt.Sprint(r.hML),
-		fmt.Sprint(r.drawML),
-		fmt.Sprint(r.gameStart),
-		fmt.Sprint(r.LastMod),
-		fmt.Sprint(r.Period),
-		fmt.Sprint(r.Seconds),
-		fmt.Sprint(r.IsTicking),
-		fmt.Sprint(r.aPts),
-		fmt.Sprint(r.hPts),
-		r.Status,
-		fmt.Sprint(r.lastMod)}
-	return ret
-}
-
-func rowsToCSV(data map[int]Row) [][]string {
-	var recs [][]string
-	i := 0
-	for _, r := range data {
-		row := rowToCSV(r, i)
-		recs = append(recs, row)
-		i++
-	}
-	return recs
-}
-
-func getLinesForRows(s string) (map[int]Row, error) {
-	ret, err := req(s)
+func getRows(s string) (map[int]Row, error) {
+	ret, err := req(lineRoot + s)
 	rs := parseLinesToRows(ret)
 	return rs, err
+}
+
+func parsePaths(ps []Path) (Row, error) {
+	var categories Row
+	for _, p := range ps {
+		switch t := p.PathType; t {
+		case "COUNTRY":
+			categories.Country = strings.Replace(p.Description, ",", "", -1)
+		case "REGION":
+			categories.Region = strings.Replace(p.Description, ",", "", -1)
+		case "LEAGUE":
+			categories.League = strings.Replace(p.Description, ",", "", -1)
+		case "COMPETITION":
+			categories.Comp = strings.Replace(p.Description, ",", "", -1)
+		}
+	}
+	return categories
 }
 
 func parseLinesToRows(b []byte) map[int]Row {
 	data := toJSON(b)
 	rs := make(map[int]Row)
-	// var events []Event
 	for _, ev := range data {
 		es := ev.Events
-		// cat := parsePaths(ev.Paths)
-		var categories Row
-		// r = parsePaths(r, ev.Paths)
-		for _, p := range ev.Paths {
-			switch t := p.PathType; t {
-			case "SPORT":
-				categories.Sport = strings.Replace(p.Description, ",", "", -1)
-			case "COUNTRY":
-				categories.Country = strings.Replace(p.Description, ",", "", -1)
-			case "REGION":
-				categories.Region = strings.Replace(p.Description, ",", "", -1)
-			case "LEAGUE":
-				categories.League = strings.Replace(p.Description, ",", "", -1)
-			case "COMPETITION":
-				categories.Comp = strings.Replace(p.Description, ",", "", -1)
-			}
-		}
-		// fmt.Println(categories)
+		categories := parsePaths(ev.Paths)
 
 		for _, e := range es {
 			r, null_row := makeLineToRow(e)
 			if null_row == false {
-				r.Sport = categories.Sport
 				r.Country = categories.Country
 				r.Region = categories.Region
 				r.League = categories.League
 				r.Comp = categories.Comp
 				rs[r.GameID] = r
-				fmt.Println(r)
 			}
 		}
 	}
@@ -200,7 +94,6 @@ func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
 	semaphoreChan := make(chan struct{}, concurrencyLimit)
 	resultsChan := make(chan *concurrentResRow)
 
-	// make sure we close these channels when we're done with them
 	defer func() {
 		close(semaphoreChan)
 		close(resultsChan)
@@ -243,37 +136,24 @@ func lineLooperz(s string) {
 }
 
 func grabRows(s string) map[int]Row {
-	rs, _ := getLinesForRows(s)
+	rs, _ := getRows(s)
 	rs = addScores(rs, 16)
 	return rs
 }
 
-func comp(prev map[int]Row, cur map[int]Row) map[int]Row {
-	to_write := make(map[int]Row)
-	for cur_id, r := range cur {
-		if !reflect.DeepEqual(r, prev[cur_id]) {
-			to_write[r.GameID] = r
-		}
-	}
-	return to_write
-}
-
 func looperz(s string, fn string) {
-
 	_, w := initCSV(fn, allHeaders)
 	url := lineRoot + s
 	prev := grabRows(url)
-	initWrite := rowsToCSV(prev)
+	initWrite := rowsToCSVFormat(prev)
 	w.WriteAll(initWrite)
 	cur := grabRows(url)
 
 	for {
-		diff := comp(prev, cur)
-		rowsToWrite := rowsToCSV(diff)
+		diff := compRows(prev, cur)
+		rowsToWrite := rowsToCSVFormat(diff)
 		fmt.Println(len(rowsToWrite), "# of changes", time.Now())
-		// for _, r := range rowsToWrite {
-		// 	fmt.Println(r)
-		// }
+
 		prev = cur
 		cur = grabRows(url)
 
@@ -281,78 +161,12 @@ func looperz(s string, fn string) {
 	}
 }
 
-func loop_n(s string, n int, fn string) {
-	_, rowWriter := initCSV(fn, allHeaders)
-
-	for i := 1; i <= n; i++ {
-		rs := grabRows(lineRoot + s)
-		rowsToWrite := rowsToCSV(rs)
-		rowWriter.WriteAll(rowsToWrite)
-	}
-}
-func makedb() *sql.DB {
-	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/hello")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-	err = db.Ping()
-	if err != nil {
-		fmt.Println("ruh roh")
-	}
-
-	_, err = db.Exec("CREATE DATABASE testDB")
-	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Println("Successfully created database..")
-	}
-	_, err = db.Exec("USE testDB")
-	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Println("DB selected successfully..")
-	}
-	return db
-}
-
-var insertRowsQuery = `INSERT INTO rows 
-(sport, league, subleague, game_id, a_team, h_team, num_markets, a_ml,
-	h_ml, draw_ml, game_start, last_mod, period, secs, is_ticking, a_pts,
-	h_pts, status)
-	VALUES(?)`
-
-func insertRows(db *sql.DB, rs []Row) {
-	for _, r := range rs {
-		stmt, err := db.Prepare(insertRowsQuery)
-		if err != nil {
-			log.Fatal(err)
-		}
-		res, err := stmt.Exec(
-			reflect.ValueOf(r))
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(res)
-	}
-}
-
-func makeRowsTable(db *sql.DB) error {
-	stmt, err := db.Prepare(schema)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	_, err = stmt.Exec()
-	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Println("Table created successfully..")
-	}
-	return err
-}
-
 func main() {
-	looperz("", "wleagues.csv")
-	// db := makedb()
-	// fmt.Println(db)
+	// looperz("", "wleagues.csv")
+	db := initDB("rows")
+	fmt.Println(db)
+
+	rs, _ := getRows("")
+	insertRows(db, rs)
+	db.Close()
 }
