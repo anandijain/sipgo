@@ -117,9 +117,9 @@ func initCloudDB(name string) *sql.DB {
 	var err error
 
 	var (
-		connectionName = mustGetenv("absa-242603:us-west1:sql")
-		user           = mustGetenv("root")
-		password       = os.Getenv("") // NOTE: password may be empty
+		connectionName = mustGetenv("CLOUDSQL_CONNECTION_NAME")
+		user           = mustGetenv("CLOUDSQL_USER")
+		password       = os.Getenv("CLOUDSQL_PASSWORD") // NOTE: password may be empty
 	)
 
 	db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@cloudsql(%s)/", user, password, connectionName))
