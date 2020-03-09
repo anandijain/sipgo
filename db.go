@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func initDB(name string) *sql.DB {
@@ -59,16 +61,7 @@ func insertRows(db *sql.DB, rs map[int]Row) {
 			fmt.Println("prep error")
 			log.Fatal(err)
 		}
-
-		// fmt.Println(fmt.Sprint(r.aTeam))
-		// fmt.Println(r.aML)
-		// if r.aPts == '' {
-		// 	r.aPts = 0
-		// }
-		// if r.hPts == '' {
-		// 	r.hPts = 0
-		// }
-		// fmt.Println(r.gameStart)
+		fmt.Println(r)
 		_, err = stmt.Exec(
 			r.GameID,
 			r.Sport,
