@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 )
 
 func initDB(name string) *sql.DB {
@@ -111,11 +112,29 @@ func makeRowsTable(db *sql.DB) error {
 	return err
 }
 
-func testInsertDB() {
-	db := initDB("rows")
-	fmt.Println(db)
+func initCloudDB(name string) *sql.DB {
+	var db *sql.DB
+	var err error
 
-	rs := grabRows("")
-	insertRows(db, rs)
-	db.Close()
+	var (
+		connectionName = mustGetenv("absa-242603:us-west1:sql")
+		user           = mustGetenv("root")
+		password       = os.Getenv("") // NOTE: password may be empty
+	)
+
+	db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@cloudsql(%s)/", user, password, connectionName))
+	if err != nil {
+		log.Fatalf("Could not open db: %v", err)
+	}
+	useDB(db, "sql") // database: rows
+	useDB(db, name)  // table rows
+	return db
+}
+
+func mustGetenv(k string) string {
+	v := os.Getenv(k)
+	if v == "" {
+		log.Panicf("%s environment variable not set.", k)
+	}
+	return v
 }

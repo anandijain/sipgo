@@ -23,7 +23,7 @@ var allHeaders = []string{"game_id", "sport", "league", "comp", "country", "regi
 	"h_pts", "status"}
 
 var schema = `CREATE TABLE rows(
-	id int NOT NULL AUTO_INCREMENT PRIMARY KEY, 
+	id int NOT NULL AUTO_INCREMENT , 
 	game_id int NOT NULL, 
 	sport varchar(4), 
 	league varchar(128), 
@@ -44,30 +44,7 @@ var schema = `CREATE TABLE rows(
 	a_pts int,
 	h_pts int,
 	status varchar(32),
-	 (id))`
-
-var pgSchema = `CREATE TABLE rows(
-	id serial NOT NULL PRIMARY KEY, 
-	game_id int NOT NULL, 
-	sport character(4), 
-	league character(128), 
-	comp character(128), 
-	country character(128), 
-	region character(128), 
-	a_team character(64), 
-	h_team character(64), 
-	num_markets int, 
-	a_ml real, 
-	h_ml real, 
-	draw_ml real,  
-	game_start timestamp, 
-	last_mod timestamp,
-	period int,
-	secs int, 
-	is_ticking boolean,
-	a_pts int,
-	h_pts int,
-	status character(32)`
+	PRIMARY KEY (id))`
 
 func parseOutcomes(os []Outcome) []float64 {
 	var decimals []float64

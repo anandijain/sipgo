@@ -75,6 +75,16 @@ func looperz(s string, fn string) {
 	}
 }
 
+func testInsertDB(name string) {
+	db := initCloudDB(name)
+	fmt.Println(db)
+
+	rs := grabRows("")
+	insertRows(db, rs)
+	db.Close()
+}
+
 func main() {
-	looperz("", "data.csv")
+	// looperz("", "data.csv")
+	testInsertDB("rows")
 }
