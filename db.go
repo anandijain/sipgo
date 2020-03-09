@@ -110,3 +110,12 @@ func makeRowsTable(db *sql.DB) error {
 	}
 	return err
 }
+
+func testInsertDB() {
+	db := initDB("rows")
+	fmt.Println(db)
+
+	rs := grabRows("")
+	insertRows(db, rs)
+	db.Close()
+}

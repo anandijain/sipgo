@@ -58,11 +58,10 @@ func grabRows(s string) map[int]Row {
 
 func looperz(s string, fn string) {
 	_, w := initCSV(fn, allHeaders)
-	url := lineRoot + s
-	prev := grabRows(url)
+	prev := grabRows(s)
 	initWrite := rowsToCSVFormat(prev)
 	w.WriteAll(initWrite)
-	cur := grabRows(url)
+	cur := grabRows(s)
 
 	for {
 		diff := compRows(prev, cur)
@@ -70,18 +69,12 @@ func looperz(s string, fn string) {
 		fmt.Println(len(rowsToWrite), "# of changes", time.Now())
 
 		prev = cur
-		cur = grabRows(url)
+		cur = grabRows(s)
 
 		w.WriteAll(rowsToWrite)
 	}
 }
 
 func main() {
-	// looperz("", "wleagues.csv")
-	db := initDB("rows")
-	fmt.Println(db)
-
-	rs := grabRows("")
-	insertRows(db, rs)
-	db.Close()
+	looperz("", "data.csv")
 }
