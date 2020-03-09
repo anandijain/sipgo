@@ -83,7 +83,7 @@ func loopDB(s string, name string) {
 
 	for {
 		diff := compRows(prev, cur)
-		fmt.Println(len(rowsToWrite), "# of changes", time.Now())
+		fmt.Println(len(diff), "# of changes", time.Now())
 
 		insertRows(db, diff)
 
