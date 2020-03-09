@@ -9,6 +9,42 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+var schema = `CREATE TABLE rows(
+	id int NOT NULL AUTO_INCREMENT , 
+	game_id int NOT NULL, 
+	sport varchar(4), 
+	league varchar(128), 
+	comp varchar(128), 
+	country varchar(128), 
+	region varchar(128), 
+	a_team varchar(64), 
+	h_team varchar(64), 
+	num_markets int, 
+	a_ml float, 
+	h_ml float, 
+	draw_ml float,  
+	game_start bigint, 
+	last_mod bigint,
+	period int,
+	secs int, 
+	is_ticking boolean,
+	a_pts int,
+	h_pts int,
+	status varchar(32),
+	PRIMARY KEY (id))`
+
+var insertRowsQuery = `INSERT INTO rows 
+	(
+		game_id, sport, league, comp, country, region, a_team, 
+		h_team, num_markets, a_ml, h_ml, draw_ml, game_start, 
+		last_mod, period, secs, is_ticking, a_pts, h_pts, status
+	) 
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+var insertRowsQuery2 = `INSERT INTO rows 
+(game_id, sport, a_team, h_team, num_markets, a_ml, h_ml, draw_ml)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+
 func initDB(name string) *sql.DB {
 	db, err := sql.Open("mysql", "root:@/rows")
 	if err != nil {
@@ -42,18 +78,6 @@ func useDB(db *sql.DB, name string) {
 	}
 }
 
-var insertRowsQuery = `INSERT INTO rows 
-	(
-		game_id, sport, league, comp, country, region, a_team, 
-		h_team, num_markets, a_ml, h_ml, draw_ml, game_start, 
-		last_mod, period, secs, is_ticking, a_pts, h_pts, status
-	) 
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
-var insertRowsQuery2 = `INSERT INTO rows 
-(game_id, sport, a_team, h_team, num_markets, a_ml, h_ml, draw_ml)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
-
 func insertRows(db *sql.DB, rs map[int]Row) {
 	for _, r := range rs {
 		stmt, err := db.Prepare(insertRowsQuery)
@@ -61,7 +85,6 @@ func insertRows(db *sql.DB, rs map[int]Row) {
 			fmt.Println("prep error")
 			log.Fatal(err)
 		}
-		fmt.Println(r)
 		_, err = stmt.Exec(
 			r.GameID,
 			r.Sport,
@@ -85,9 +108,7 @@ func insertRows(db *sql.DB, rs map[int]Row) {
 			r.Status)
 		if err != nil {
 			fmt.Println("write error", err)
-			// log.Fatal("write error:", err)
 		}
-		// fmt.Println(res)
 	}
 }
 

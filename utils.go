@@ -22,30 +22,6 @@ var allHeaders = []string{"game_id", "sport", "league", "comp", "country", "regi
 	"h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts",
 	"h_pts", "status"}
 
-var schema = `CREATE TABLE rows(
-	id int NOT NULL AUTO_INCREMENT , 
-	game_id int NOT NULL, 
-	sport varchar(4), 
-	league varchar(128), 
-	comp varchar(128), 
-	country varchar(128), 
-	region varchar(128), 
-	a_team varchar(64), 
-	h_team varchar(64), 
-	num_markets int, 
-	a_ml float, 
-	h_ml float, 
-	draw_ml float,  
-	game_start bigint, 
-	last_mod bigint,
-	period int,
-	secs int, 
-	is_ticking boolean,
-	a_pts int,
-	h_pts int,
-	status varchar(32),
-	PRIMARY KEY (id))`
-
 func parseOutcomes(os []Outcome) []float64 {
 	var decimals []float64
 	for _, o := range os {

@@ -75,6 +75,7 @@ func looperz(s string, fn string) {
 		w.WriteAll(rowsToWrite)
 	}
 }
+
 func loopDB(s string, name string) {
 	db := initCloudDB(name)
 
