@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/mysql"
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -74,10 +75,25 @@ func looperz(s string, fn string) {
 		w.WriteAll(rowsToWrite)
 	}
 }
+func loopDB(s string, name string) {
+	db := initCloudDB(name)
+
+	prev := grabRows(s)
+	cur := grabRows(s)
+
+	for {
+		diff := compRows(prev, cur)
+		fmt.Println(len(rowsToWrite), "# of changes", time.Now())
+
+		insertRows(db, diff)
+
+		prev = cur
+		cur = grabRows(s)
+	}
+}
 
 func testInsertDB(name string) {
 	db := initCloudDB(name)
-	fmt.Println(db)
 
 	rs := grabRows("")
 	insertRows(db, rs)
@@ -86,5 +102,6 @@ func testInsertDB(name string) {
 
 func main() {
 	// looperz("", "data.csv")
-	testInsertDB("rows")
+	// testInsertDB("rows")
+	loopDB("", "rows")
 }
