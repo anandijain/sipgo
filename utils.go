@@ -78,7 +78,7 @@ func makeLineToRow(e Event) (Row, bool) {
 	// spreads := mainMkts["Point Spread"].Outcomes
 	parsedMLs := parseOutcomes(mls)
 	// parsedSpreads := parseOutcomes(spreads)
-	if r.Sport == "SOCC" {
+	if stringInSlice(r.Sport, drawSports) {
 		if len(parsedMLs) == 3 {
 			r.aML = parsedMLs[0]
 			r.hML = parsedMLs[1]
@@ -160,6 +160,15 @@ func checkError(message string, err error) {
 	if err != nil {
 		log.Fatal(message, err)
 	}
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 func initCSV(fn string, header []string) (*os.File, *csv.Writer) {

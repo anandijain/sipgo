@@ -1,4 +1,5 @@
 // credit montanaflynn/pget.go https://gist.github.com/montanaflynn/ea4b92ed640f790c4b9cee36046a5383
+// https://medium.com/dev-bits/making-concurrent-http-requests-in-go-programming-language-823b51bb1dc2
 package main
 
 import (
@@ -22,6 +23,14 @@ func req(s string) ([]byte, error) {
 	res.Body.Close()
 	return ret, httperr
 }
+func MakeRequest(url string, ch chan<-string) {
+  start := time.Now()
+  resp, _ := http.Get(url)
+  secs := time.Since(start).Seconds()
+  body, _ := ioutil.ReadAll(resp.Body)
+  ch <- fmt.Sprintf("%.2f elapsed with response length: %d %s", secs, len(body), url)
+}
+func reqConcurrent(, http) 
 
 func getRowsNoScore(s string) (map[int]Row, error) {
 	ret, err := req(lineRoot + s)

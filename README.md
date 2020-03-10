@@ -40,6 +40,8 @@ odds:
 
 ## TODO
 
+* n-competitor event handling
+* prop markets
 * there is a bottleneck in requesting the entire /sports/ page at once, to fix this concurrently request each sport individually, separate live/pregame for req()
 * misc sports fix (tennis scores, boxing/mma/cricket odds)
 
