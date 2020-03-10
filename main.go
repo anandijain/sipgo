@@ -77,17 +77,19 @@ func looperz(s string, fn string) {
 }
 
 func loopDB(s string, name string) {
+	
 	db := initCloudDB(name)
-
+	stmt, _ := db.Prepare(insertRowsQuery)
+	
 	prev := grabRows(s)
 	cur := grabRows(s)
-
+	
 	for {
 		diff := compRows(prev, cur)
 		fmt.Println(len(diff), "# of changes", time.Now())
-
-		insertRows(db, diff)
-
+		
+		insertRows(db, diff, stmt)
+		
 		prev = cur
 		cur = grabRows(s)
 	}
@@ -95,14 +97,18 @@ func loopDB(s string, name string) {
 
 func testInsertDB(name string) {
 	db := initCloudDB(name)
+	stmt, _ := db.Prepare(insertRowsQuery)
 
 	rs := grabRows("")
-	insertRows(db, rs)
+	insertRows(db, rs, stmt)
 	db.Close()
 }
 
 func main() {
 	// looperz("", "data.csv")
+	// rs, _ := getLines("")
+	// fmt.Println(rs)
+	// fmt.Println(len(rs))
 	// testInsertDB("rows")
 	loopDB("", "rows")
 }

@@ -231,6 +231,10 @@ func addScore(r Row) (Row, error) {
 	}
 
 	r.aPts, err = strconv.Atoi(s.LatestScore.Visitor)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	fmt.Println(err)
+	// }
 	r.hPts, err = strconv.Atoi(s.LatestScore.Home)
 	r.Status = s.GameStatus
 	r.lastMod = s.LastUpdated

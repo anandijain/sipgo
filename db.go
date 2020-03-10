@@ -78,14 +78,9 @@ func useDB(db *sql.DB, name string) {
 	}
 }
 
-func insertRows(db *sql.DB, rs map[int]Row) {
+func insertRows(db *sql.DB, rs map[int]Row, stmt *sql.Stmt) {
 	for _, r := range rs {
-		stmt, err := db.Prepare(insertRowsQuery)
-		if err != nil {
-			fmt.Println("prep error")
-			log.Fatal(err)
-		}
-		_, err = stmt.Exec(
+		_, err := stmt.Exec(
 			r.GameID,
 			r.Sport,
 			r.League,
