@@ -30,7 +30,6 @@ func MakeRequest(url string, ch chan<-string) {
   body, _ := ioutil.ReadAll(resp.Body)
   ch <- fmt.Sprintf("%.2f elapsed with response length: %d %s", secs, len(body), url)
 }
-func reqConcurrent(, http) 
 
 func getRowsNoScore(s string) (map[int]Row, error) {
 	ret, err := req(lineRoot + s)
@@ -114,10 +113,10 @@ func testInsertDB(name string) {
 }
 
 func main() {
-	// looperz("", "data.csv")
+	looperz("", "data.csv")
 	// rs, _ := getLines("")
 	// fmt.Println(rs)
 	// fmt.Println(len(rs))
 	// testInsertDB("rows")
-	loopDB("", "rows")
+	// loopDB("", "rows")
 }

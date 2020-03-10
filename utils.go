@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"reflect"
 	"sort"
@@ -84,6 +85,7 @@ func makeLineToRow(e Event) (Row, bool) {
 			r.hML = parsedMLs[1]
 			r.drawML = parsedMLs[2]
 		} else {
+			// fmt.Println(r, "messed up")
 			return r, null_row
 		}
 	} else {
@@ -180,6 +182,38 @@ func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	w.Write(header)
 	// defer w.Flush()
 	return f, w
+}
+
+func boundedParallelGet(urls []string, concurrencyLimit int) []concurrentResult {
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+	resultsChan := make(chan *concurrentResult)
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+	for i, url := range urls {
+		go func(i int, url string) {
+			semaphoreChan <- struct{}{}
+			res, err := http.Get(url)
+			result := &concurrentResult{i, *res, err}
+			resultsChan <- result
+			<-semaphoreChan
+
+		}(i, url)
+	}
+	var results []concurrentResult
+	for {
+		result := <-resultsChan
+		results = append(results, *result)
+		if len(results) == len(urls) {
+			break
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+	return results
 }
 
 func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {

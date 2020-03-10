@@ -1,8 +1,15 @@
 package main
 
+import "net/http"
+
 type concurrentResRow struct {
 	index int
 	res   Row
+	err   error
+}
+type concurrentResult struct {
+	index int
+	res   http.Response
 	err   error
 }
 
@@ -189,7 +196,7 @@ type Score struct {
 	DisplayVisitorTeamFirst bool              `json:"displayVisitorTeamFirst"`
 }
 
-type concurrentRes struct {
+type concurrentResScore struct {
 	index int
 	res   shortScore
 	err   error
