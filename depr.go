@@ -78,14 +78,6 @@ func getScore(s string) (shortScore, error) {
 	return r, err
 }
 
-func lineLooperz(s string) {
-	_, w := initCSV("lines.csv", lineHeaders)
-	for {
-		lines, _ := getLines(s)
-		toWrite := linesToCSV(lines)
-		w.WriteAll(toWrite)
-	}
-}
 
 func scoreToCSV(s shortScore) []string {
 	ret := []string{

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"time"
 
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/mysql"
@@ -123,6 +124,26 @@ func testInsertDB(name string) {
 	db.Close()
 }
 
+func lineLooperz(s string) {
+	_, w := initCSV("lines.csv", lineHeaders)
+
+	prev, _ := getLines("")
+	cur, _ := getLines("")
+
+	for {
+		var diff map[int]Line
+		for id, v := range cur {
+			if !reflect.DeepEqual(v, prev[id]) {
+				diff[id] = v
+			}
+		}
+		toWrite := linesToCSV(diff)
+		w.WriteAll(toWrite)
+
+		prev = cur
+		cur, _ = getLines("")
+	}
+}
 func main() {
 	// looperz("data.csv")
 
@@ -131,12 +152,12 @@ func main() {
 	// for id := range rs {
 	// 	ids = append(ids, id)
 	// }
-
-	t0 := time.Now()
-	ss := getScores()
-	t1 := time.Now()
-	fmt.Println(ss)
-	fmt.Println("getLines", len(ss), "# lines and scores in", t1.Sub(t0))
+	lineLooperz("")
+	// t0 := time.Now()
+	// ss := getScores()
+	// t1 := time.Now()
+	// fmt.Println(ss)
+	// fmt.Println("getLines", len(ss), "# lines and scores in", t1.Sub(t0))
 	// testInsertDB("rows")
 	// loopDB("", "rows")
 }
