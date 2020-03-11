@@ -23,12 +23,12 @@ func req(s string) ([]byte, error) {
 	res.Body.Close()
 	return ret, httperr
 }
-func MakeRequest(url string, ch chan<-string) {
-  start := time.Now()
-  resp, _ := http.Get(url)
-  secs := time.Since(start).Seconds()
-  body, _ := ioutil.ReadAll(resp.Body)
-  ch <- fmt.Sprintf("%.2f elapsed with response length: %d %s", secs, len(body), url)
+func MakeRequest(url string, ch chan<- string) {
+	start := time.Now()
+	resp, _ := http.Get(url)
+	secs := time.Since(start).Seconds()
+	body, _ := ioutil.ReadAll(resp.Body)
+	ch <- fmt.Sprintf("%.2f elapsed with response length: %d %s", secs, len(body), url)
 }
 
 func getRowsNoScore(s string) (map[int]Row, error) {
@@ -85,19 +85,19 @@ func looperz(s string, fn string) {
 }
 
 func loopDB(s string, name string) {
-	
+
 	db := initCloudDB(name)
 	stmt, _ := db.Prepare(insertRowsQuery)
-	
+
 	prev := grabRows(s)
 	cur := grabRows(s)
-	
+
 	for {
 		diff := compRows(prev, cur)
 		fmt.Println(len(diff), "# of changes", time.Now())
-		
+
 		insertRows(db, diff, stmt)
-		
+
 		prev = cur
 		cur = grabRows(s)
 	}
@@ -113,10 +113,7 @@ func testInsertDB(name string) {
 }
 
 func main() {
-	looperz("", "data.csv")
-	// rs, _ := getLines("")
-	// fmt.Println(rs)
-	// fmt.Println(len(rs))
+	// looperz("", "data.csv")
 	// testInsertDB("rows")
-	// loopDB("", "rows")
+	loopDB("", "rows")
 }
