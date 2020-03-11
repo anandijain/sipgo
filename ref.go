@@ -1,18 +1,26 @@
+package main
 
-func getRefGame(s string, id string){
+import (
+	"encoding/csv"
+	"fmt"
+	"os"
 
+	"github.com/gocolly/colly"
+)
 
-	sport_map := map[string]string{
+func getRefGame(s string, id string) {
+
+	sportMap := map[string]string{
 		"nba": "https://www.basketball-reference.com/",
 		"nfl": "https://www.pro-football-reference.com/",
 		"nhl": "https://www.hockey-reference.com/",
 		"mlb": "https://www.baseball-reference.com/",
 	}
 	// REF_SFX := map[string]string{
-    // "nfl": ".htm",
-    // "nba": ".html",
-    // "mlb": ".shtml",
-    // "nhl": "html",
+	// "nfl": ".htm",
+	// "nba": ".html",
+	// "mlb": ".shtml",
+	// "nhl": "html",
 	// }
 
 	// REF_BOX_SFX := map[string]string {
@@ -20,9 +28,9 @@ func getRefGame(s string, id string){
 	// 	"nba": "boxscores/",
 	// 	"mlb": "boxes/",
 	// 	"nhl": "boxscores/",
-	// }	
-	root_domain := sport_map[s]
-	fmt.Println(root_domain)
+	// }
+	rootDomain := sportMap[s]
+	fmt.Println(rootDomain)
 	fName := "202001260ATL.csv"
 	file, _ := os.Create(fName)
 	// table id four_factors
@@ -34,9 +42,9 @@ func getRefGame(s string, id string){
 	// writer.Write([]string{"team", "pace", "eFG%", "TOV%", "ORB%", "FT/FTA", "ORtg"})
 	writer.Write([]string{"name", "p_id", "pos"})
 	c := colly.NewCollector(
-		colly.AllowedDomains(root_domain),
+		colly.AllowedDomains(rootDomain),
 	)
-	
+
 	// Extract product details
 	c.OnHTML("#home_starters tbody tr", func(e *colly.HTMLElement) {
 		// e.ForEach(".")

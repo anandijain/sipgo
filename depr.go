@@ -2,72 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 )
 
-func makeLine(e Event) (Line, bool) {
-	var r Line
-	var null_row = false
-	r.Sport = e.Sport
-	gameID, _ := strconv.Atoi(e.ID)
-	r.GameID = gameID
-
-	if len(e.Competitors) == 2 {
-		if e.AwayTeamFirst {
-			r.aTeam = e.Competitors[0].Name
-			r.hTeam = e.Competitors[1].Name
-		} else {
-			r.aTeam = e.Competitors[1].Name
-			r.hTeam = e.Competitors[0].Name
-		}
-	} else {
-		null_row = true
-	}
-	mkts := e.DisplayGroups[0].Markets
-	mainMkts := getMainMarkets(mkts)
-	var mls []Outcome
-	if includes(drawSports, r.Sport) {
-		mls = mainMkts["3-Way Moneyline"].Outcomes
-	} else {
-		mls = mainMkts["Moneyline"].Outcomes
-	}
-	// spreads := mainMkts["Point Spread"].Outcomes
-	parsedMLs := parseOutcomes(mls)
-	// parsedSpreads := parseOutcomes(spreads)
-	if r.Sport == "SOCC" {
-		if len(parsedMLs) == 3 {
-			r.aML = parsedMLs[0]
-			r.hML = parsedMLs[1]
-			r.drawML = parsedMLs[2]
-		} else {
-			return r, null_row
-		}
-	} else {
-		if len(parsedMLs) == 2 {
-			r.aML = parsedMLs[0]
-			r.hML = parsedMLs[1]
-			r.drawML = 0.
-		} else {
-			return r, null_row
-		}
-	}
-
-	r.LastMod = e.LastModified
-	r.gameStart = e.StartTime
-	r.NumMarkets = e.NumMarkets
-	if r.aTeam == "" {
-		null_row = true
-	}
-	return r, null_row
-}
-
-func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
-	var results []concurrentRes
+func getScoresConcurrent(ids []int, concurrencyLimit int) map[int]shortScore {
+	var results []concurrentResScore
 	scores := make(map[int]shortScore)
 	semaphoreChan := make(chan struct{}, concurrencyLimit)
-	resultsChan := make(chan *concurrentRes)
+	resultsChan := make(chan *concurrentResScore)
 
 	// make sure we close these channels when we're done with them
 	defer func() {
@@ -75,14 +18,14 @@ func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
 		close(resultsChan)
 	}()
 
-	for i, g_id := range ids {
-		go func(i int, g_id int) {
+	for i, id := range ids {
+		go func(i int, id int) {
 			semaphoreChan <- struct{}{}
-			s, err := getScore(strconv.Itoa(g_id))
-			result := concurrentRes{i, s, err}
+			s, err := getScore(strconv.Itoa(id))
+			result := concurrentResScore{i, s, err}
 			resultsChan <- &result
 			<-semaphoreChan
-		}(i, g_id)
+		}(i, id)
 	}
 	for {
 		result := <-resultsChan
@@ -99,19 +42,22 @@ func getScores(ids []int, concurrencyLimit int) map[int]shortScore {
 	}
 	return scores
 }
-
-func makeScore(s Score) shortScore {
+ 
+func makeScore(s Score) (shortScore, bool) {
 	var r shortScore
+	nullRow := false
+	fmt.Println(s.EventID)
+	r.GameID = s.EventID
 	r.Period = s.Clock.PeriodNumber
 	r.Seconds = s.Clock.RelativeGameTimeInSecs
 	r.IsTicking = s.Clock.IsTicking
 	// r.NumberOfPeriods = s.Clock.NumberOfPeriods
 	if len(s.Competitors) != 2 {
-		return r
+		nullRow = true
 	}
-
+	
 	if s.Competitors[0].Name == "" {
-		fmt.Println("broke")
+		nullRow = true
 	}
 	r.aTeam = s.Competitors[0].Name
 	r.hTeam = s.Competitors[1].Name
@@ -119,7 +65,7 @@ func makeScore(s Score) shortScore {
 	r.hPts = s.LatestScore.Home
 	r.Status = s.GameStatus
 	r.lastMod = s.LastUpdated
-	return r
+	return r, nullRow
 }
 
 func getScore(s string) (shortScore, error) {
@@ -128,7 +74,7 @@ func getScore(s string) (shortScore, error) {
 		fmt.Println("get score err", err)
 	}
 	data := scoreFromBytes(ret)
-	r := makeScore(data)
+	r, _ := makeScore(data)
 	return r, err
 }
 
@@ -136,26 +82,9 @@ func lineLooperz(s string) {
 	_, w := initCSV("lines.csv", lineHeaders)
 	for {
 		lines, _ := getLines(s)
-		to_write := linesToCSV(lines)
-		w.WriteAll(to_write)
+		toWrite := linesToCSV(lines)
+		w.WriteAll(toWrite)
 	}
-}
-
-func parseLines(b []byte) map[int]Line {
-	data := toJSON(b)
-	rs := make(map[int]Line)
-	// var events []Event
-	for _, ev := range data {
-		es := ev.Events
-		for _, e := range es {
-			r, null_row := makeLine(e)
-			if null_row == false {
-				rs[r.GameID] = r
-			}
-		}
-	}
-
-	return rs
 }
 
 func scoreToCSV(s shortScore) []string {
@@ -183,11 +112,6 @@ func scoresToCSV(data map[int]shortScore) [][]string {
 	return recs
 }
 
-func getLines(s string) (map[int]Line, error) {
-	ret, err := req(lineRoot + s)
-	rs := parseLines(ret)
-	return rs, err
-}
 func lineToCSV(r Line) []string {
 	ret := []string{r.Sport, fmt.Sprint(r.GameID), r.aTeam, r.hTeam, fmt.Sprint(r.NumMarkets), fmt.Sprint(r.aML), fmt.Sprint(r.hML), fmt.Sprint(r.drawML),
 		fmt.Sprint(r.gameStart), fmt.Sprint(r.LastMod)}
@@ -201,4 +125,62 @@ func linesToCSV(data map[int]Line) [][]string {
 		recs = append(recs, row)
 	}
 	return recs
+}
+func setCompetitorsLine(e Event, l Line) (Line, bool) {
+	var nullRow = false
+	if len(e.Competitors) == 2 {
+		if e.AwayTeamFirst {
+			l.aTeam = e.Competitors[0].Name
+			l.hTeam = e.Competitors[1].Name
+		} else {
+			l.aTeam = e.Competitors[1].Name
+			l.hTeam = e.Competitors[0].Name
+		}
+	} else {
+		nullRow = true
+	}
+	return l, nullRow
+}
+func parseMarketsToLine(e Event, l Line) (Line, bool) {
+	var nullRow = false
+	mkts := e.DisplayGroups[0].Markets
+	mainMkts := getMainMarkets(mkts)
+	var mls []Outcome
+	switch {
+	case includes(drawSports, l.Sport):
+		mls = mainMkts["3-Way Moneyline"].Outcomes
+	case l.Sport == "BOXI":
+		mls = mainMkts["To Win the Bout"].Outcomes
+	case l.Sport == "MMA":
+		mls = mainMkts["Fight Winner"].Outcomes
+	case l.Sport == "DART":
+		mls = mainMkts["Winner"].Outcomes
+	default:
+		mls = mainMkts["Moneyline"].Outcomes
+	}
+	parsedMLs := parseOutcomes(mls)
+	l.aML = parsedMLs[0]
+	l.hML = parsedMLs[1]
+	if len(parsedMLs) == 3 {
+		l.drawML = parsedMLs[2]
+	}
+	return l, nullRow
+}
+
+
+func makeLine(e Event) (Line, bool) {
+	var l Line
+	var nullRow = false
+	l.Sport = e.Sport
+	gameID, _ := strconv.Atoi(e.ID)
+	l.GameID = gameID
+	l, nullRow = setCompetitorsLine(e, l)
+	l, nullRow = parseMarketsToLine(e, l)
+	l.LastMod = e.LastModified
+	l.gameStart = e.StartTime
+	l.NumMarkets = e.NumMarkets
+	if l.aTeam == "" {
+		nullRow = true
+	}
+	return l, nullRow
 }

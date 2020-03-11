@@ -40,13 +40,14 @@ odds:
 
 ## TODO
 
-* n-competitor event handling
-* prop markets
-* there is a bottleneck in requesting the entire /sports/ page at once, to fix this concurrently request each sport individually, separate live/pregame for req()
+* potentially reseparate Row -> Line + Score and write to different db tables (large performance increase)
+* n-competitor/tournament event handling (more data)
+* prop markets, find good encoding (more data)
 * misc sports fix (tennis scores, boxing/mma/cricket odds)
 
 ## completed
 
+* parallel sport request (limited to 2 competitor games - count: 19) this turned out to have a minimal performance impact on low # of games, which makes sense
 * cloud sql upload
 * added region country and competition
 * added league and round info to Row

@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
@@ -14,27 +13,19 @@ import (
 )
 
 func req(s string) ([]byte, error) {
-	res, httperr := http.Get(s)
-	if httperr != nil {
-		fmt.Println("1")
-		log.Fatal(httperr)
-	}
-	ret, _ := ioutil.ReadAll(res.Body)
+	res, _ := http.Get(s)
+	// if httperr != nil {
+	// 	fmt.Println("1")
+	// 	fmt.Println(res)
+	// } else {
+	// 	fmt.Println("req error")
+	// 	fmt.Println(res)
+	// 	log.Fatal(httperr)
+	// }
+	ret, err := ioutil.ReadAll(res.Body)
+	// fmt.Println(ret)
 	res.Body.Close()
-	return ret, httperr
-}
-func MakeRequest(url string, ch chan<- string) {
-	start := time.Now()
-	resp, _ := http.Get(url)
-	secs := time.Since(start).Seconds()
-	body, _ := ioutil.ReadAll(resp.Body)
-	ch <- fmt.Sprintf("%.2f elapsed with response length: %d %s", secs, len(body), url)
-}
-
-func getRowsNoScore(s string) (map[int]Row, error) {
-	ret, err := req(lineRoot + s)
-	rs := parseLinesToRows(ret)
-	return rs, err
+	return ret, err
 }
 
 func parseLinesToRows(b []byte) map[int]Row {
@@ -45,8 +36,8 @@ func parseLinesToRows(b []byte) map[int]Row {
 		categories := parsePaths(ev.Paths)
 
 		for _, e := range es {
-			r, null_row := makeLineToRow(e)
-			if null_row == false {
+			r, nullRow := makeLineToRow(e)
+			if nullRow == false {
 				r.Country = categories.Country
 				r.Region = categories.Region
 				r.League = categories.League
@@ -59,38 +50,58 @@ func parseLinesToRows(b []byte) map[int]Row {
 	return rs
 }
 
-func grabRows(s string) map[int]Row {
+func getScores() map[int]shortScore {
+	ret, _ := req(scoreRoot)
+	shortScores := make(map[int]shortScore)
+	scores := scoresFromBytes(ret)
+	fmt.Println(scores)
+	for _, s := range scores {
+		for _, sc := range s.Scores {
+			toAdd, nullRow := makeScore(sc)
+			if nullRow != true {
+				shortScores[toAdd.GameID] = toAdd
+			}
+		}
+	}
+	return shortScores
+}
+
+func getRows(s string) map[int]Row {
 	rs, _ := getRowsNoScore(s)
-	rs = addScores(rs, 16)
+	rs = addScores(rs, concurrencyLim)
 	return rs
 }
 
-func looperz(s string, fn string) {
+func getLines(s string) (map[int]Line, error) {
+	ret, err := req(lineRoot + s)
+	rs := parseLines(ret)
+	return rs, err
+}
+
+func looperz(fn string) {
 	_, w := initCSV(fn, allHeaders)
-	prev := grabRows(s)
-	initWrite := rowsToCSVFormat(prev)
-	w.WriteAll(initWrite)
-	cur := grabRows(s)
+	prev := getRows("")
+	w.WriteAll(rowsToCSVFormat(prev))
+	cur := getRows("")
 
 	for {
 		diff := compRows(prev, cur)
-		rowsToWrite := rowsToCSVFormat(diff)
-		fmt.Println(len(rowsToWrite), "# of changes", time.Now())
+		fmt.Println(len(diff), "# of changes", time.Now())
 
 		prev = cur
-		cur = grabRows(s)
+		cur = getRows("")
 
-		w.WriteAll(rowsToWrite)
+		w.WriteAll(rowsToCSVFormat(diff))
 	}
 }
 
-func loopDB(s string, name string) {
+func loopDB(name string) {
 
 	db := initCloudDB(name)
 	stmt, _ := db.Prepare(insertRowsQuery)
 
-	prev := grabRows(s)
-	cur := grabRows(s)
+	prev := getRows("")
+	cur := getRows("")
 
 	for {
 		diff := compRows(prev, cur)
@@ -99,7 +110,7 @@ func loopDB(s string, name string) {
 		insertRows(db, diff, stmt)
 
 		prev = cur
-		cur = grabRows(s)
+		cur = getRows("")
 	}
 }
 
@@ -107,13 +118,25 @@ func testInsertDB(name string) {
 	db := initCloudDB(name)
 	stmt, _ := db.Prepare(insertRowsQuery)
 
-	rs := grabRows("")
+	rs := getRows("")
 	insertRows(db, rs, stmt)
 	db.Close()
 }
 
 func main() {
-	// looperz("", "data.csv")
+	// looperz("data.csv")
+
+	// // rs := getRows("")
+	// var ids []int
+	// for id := range rs {
+	// 	ids = append(ids, id)
+	// }
+
+	t0 := time.Now()
+	ss := getScores()
+	t1 := time.Now()
+	fmt.Println(ss)
+	fmt.Println("getLines", len(ss), "# lines and scores in", t1.Sub(t0))
 	// testInsertDB("rows")
-	loopDB("", "rows")
+	// loopDB("", "rows")
 }

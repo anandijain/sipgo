@@ -1,19 +1,17 @@
 package main
 
-import "net/http"
-
 type concurrentResRow struct {
 	index int
 	res   Row
 	err   error
 }
-type concurrentResult struct {
+type concurrentMapRowResult struct {
 	index int
-	res   http.Response
-	err   error
+	sport string
+	res   map[int]Row
 }
 
-// Line for CSV headers len 17
+// Row for CSV headers len 17
 type Row struct {
 	GameID     int
 	Sport      string
@@ -47,6 +45,11 @@ type Sport struct {
 type Competition struct {
 	Events []Event `json:"events"`
 	Paths  []Path  `json:"path"`
+}
+
+// Scores ya
+type Scores []struct {
+	Scores []Score `json:""`
 }
 
 // Event : specifying game
@@ -153,6 +156,7 @@ type ResultList struct {
 	ResultL []Competition
 }
 
+// Clock describes position in game
 type Clock struct {
 	Period                 string `json:"period"`
 	PeriodNumber           int    `json:"periodNumber"`
@@ -180,6 +184,7 @@ type altIds struct {
 	BGS int `json:"BGS"`
 }
 
+// Score describes the last updated score and teams
 type Score struct {
 	EventID                 int               `json:"eventId"`
 	EventSource             string            `json:"eventSource"`
@@ -194,6 +199,20 @@ type Score struct {
 	LastUpdated             string            `json:"lastUpdated"`
 	EventDescription        string            `json:"eventDescription"`
 	DisplayVisitorTeamFirst bool              `json:"displayVisitorTeamFirst"`
+}
+
+// score for CSV len 10
+type shortScore struct {
+	GameID    int
+	aTeam     string
+	hTeam     string
+	Period    int
+	Seconds   int
+	IsTicking bool
+	aPts      string
+	hPts      string
+	Status    string
+	lastMod   string
 }
 
 type concurrentResScore struct {
@@ -216,22 +235,7 @@ type Line struct {
 	LastMod    int
 }
 
-// score for CSV len 10
-type shortScore struct {
-	GameID    int
-	aTeam     string
-	hTeam     string
-	Period    int
-	Seconds   int
-	IsTicking bool
-	aPts      string
-	hPts      string
-	Status    string
-	lastMod   string
-}
-
-// https://shikenso.com/api/v2/tournaments?token=1111
-
+// ShikensoTeam https://shikenso.com/api/v2/tournaments?token=1111
 type ShikensoTeam struct {
 	Name          string `json:"name"`
 	Abbrev        string `json:"abbrev"`
@@ -239,6 +243,7 @@ type ShikensoTeam struct {
 	TeamLogo      string `json:"team_logo"`
 }
 
+// Tourney https://shikenso.com/api/v2/tournaments?token=1111
 type Tourney []struct {
 	WebsiteLink string `json:"website_link,omitempty"`
 	Country     string `json:"country"`
@@ -263,12 +268,14 @@ type Tourney []struct {
 	Sponsors  []Sponsor `json:"sponsors,omitempty"`
 }
 
+// PrizePool amt to win
 type PrizePool struct {
 	Place int          `json:"place"`
 	Team  ShikensoTeam `json:"team"`
 	Prize int          `json:"prize"`
 }
 
+// Sponsor : sponsor of event
 type Sponsor struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`

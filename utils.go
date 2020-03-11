@@ -6,13 +6,21 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 )
+
+var concurrencyLim = 10
+
+// len 19
+var supportedSports = []string{"soccer", "esports", "ufc-mma", "football",
+	"boxing", "basketball", "tennis", "rugby-league",
+	"table-tennis", "hockey", "volleyball", "rugby-union",
+	"darts", "aussie-rules", "badminton", "baseball",
+	"handball", "cricket", "snooker"}
 
 var lineRoot = "https://www.bovada.lv/services/sports/event/v2/events/A/description/"
 var scoreRoot = "https://www.bovada.lv/services/sports/results/api/v1/scores/"
@@ -23,21 +31,21 @@ var allHeaders = []string{"game_id", "sport", "league", "comp", "country", "regi
 	"h_ml", "draw_ml", "game_start", "last_mod", "period", "secs", "is_ticking", "a_pts",
 	"h_pts", "status"}
 
-func parseOutcomes(os []Outcome) []float64 {
-	var decimals []float64
-	for _, o := range os {
+func parseOutcomes(os []Outcome) map[int]float64 {
+	decimals := make(map[int]float64)
+	for i, o := range os {
 		ml, err := strconv.ParseFloat(o.Price.Decimal, 64)
 		if err != nil {
-			fmt.Println("closed", err)
+			// fmt.Println("closed", err)
 			ml = 0
 		} else {
-			decimals = append(decimals, ml)
+			decimals[i] = ml
 		}
 	}
 	return decimals
 }
 
-func index_strs(vs []string, t string) int {
+func indexStrs(vs []string, t string) int {
 	for i, v := range vs {
 		if v == t {
 			return i
@@ -47,16 +55,11 @@ func index_strs(vs []string, t string) int {
 }
 
 func includes(vs []string, t string) bool {
-	return index_strs(vs, t) >= 0
+	return indexStrs(vs, t) >= 0
 }
 
-func makeLineToRow(e Event) (Row, bool) {
-	var r Row
-	var null_row = false
-	r.Sport = e.Sport
-	gameID, _ := strconv.Atoi(e.ID)
-	r.GameID = gameID
-
+func setCompetitors(e Event, r Row) (Row, bool) {
+	var nullRow = false
 	if len(e.Competitors) == 2 {
 		if e.AwayTeamFirst {
 			r.aTeam = e.Competitors[0].Name
@@ -66,53 +69,57 @@ func makeLineToRow(e Event) (Row, bool) {
 			r.hTeam = e.Competitors[0].Name
 		}
 	} else {
-		null_row = true
+		nullRow = true
 	}
+	return r, nullRow
+}
+
+func parseMarkets(e Event, r Row) (Row, bool) {
+	var nullRow = false
 	mkts := e.DisplayGroups[0].Markets
 	mainMkts := getMainMarkets(mkts)
 	var mls []Outcome
-	if includes(drawSports, r.Sport) {
+	switch {
+	case includes(drawSports, r.Sport):
 		mls = mainMkts["3-Way Moneyline"].Outcomes
-	} else {
+	case r.Sport == "BOXI":
+		mls = mainMkts["To Win the Bout"].Outcomes
+	case r.Sport == "MMA":
+		mls = mainMkts["Fight Winner"].Outcomes
+	case r.Sport == "DART":
+		mls = mainMkts["Winner"].Outcomes
+	default:
 		mls = mainMkts["Moneyline"].Outcomes
 	}
-	// spreads := mainMkts["Point Spread"].Outcomes
 	parsedMLs := parseOutcomes(mls)
-	// parsedSpreads := parseOutcomes(spreads)
-	if stringInSlice(r.Sport, drawSports) {
-		if len(parsedMLs) == 3 {
-			r.aML = parsedMLs[0]
-			r.hML = parsedMLs[1]
-			r.drawML = parsedMLs[2]
-		} else {
-			// fmt.Println(r, "messed up")
-			return r, null_row
-		}
-	} else {
-		if len(parsedMLs) == 2 {
-			r.aML = parsedMLs[0]
-			r.hML = parsedMLs[1]
-			r.drawML = 0.
-		} else {
-			return r, null_row
-		}
-	}
+	r.aML = parsedMLs[0]
+	r.hML = parsedMLs[1]
+	r.drawML = parsedMLs[2]
+	return r, nullRow
+}
 
+func makeLineToRow(e Event) (Row, bool) {
+	var r Row
+	var nullRow = false
+	r.Sport = e.Sport
+	gameID, _ := strconv.Atoi(e.ID)
+	r.GameID = gameID
+	r, nullRow = setCompetitors(e, r)
+	r, nullRow = parseMarkets(e, r)
 	r.LastMod = e.LastModified
 	r.gameStart = e.StartTime
 	r.NumMarkets = e.NumMarkets
 	if r.aTeam == "" {
-		null_row = true
+		nullRow = true
 	}
-	return r, null_row
+	return r, nullRow
 }
 
-func getMainMarkets(m []Market) map[string]Market {
+func getMainMarkets(ms []Market) map[string]Market {
 	ret := make(map[string]Market)
-	n := len(m)
-	for i := 0; i < n; i++ {
-		if m[i].Period.Main {
-			ret[m[i].Description] = m[i]
+	for _, m := range ms {
+		if m.Period.Main {
+			ret[m.Description] = m
 		}
 	}
 	return ret
@@ -138,6 +145,7 @@ func toJSON(b []byte) []Competition {
 			break
 		} else if err != nil {
 			fmt.Println("json couldnt -> []Competition")
+			print(b)
 			// log.Fatal(err)
 		}
 	}
@@ -149,10 +157,28 @@ func scoreFromBytes(b []byte) Score {
 	dec := json.NewDecoder(strings.NewReader(retString))
 	var s Score
 	if err := dec.Decode(&s); err == io.EOF {
+
 		fmt.Println("json couldnt -> Score", err)
 	} else if err != nil {
 		fmt.Println("json couldnt -> Score", err)
 	}
+	return s
+}
+
+func scoresFromBytes(b []byte) Scores {
+	retString := string(b)
+	dec := json.NewDecoder(strings.NewReader(retString))
+	var s Scores
+	for {
+		if err := dec.Decode(&s); err == io.EOF {
+			break
+			fmt.Println("json couldnt -> Score", err)
+		} else if err != nil {
+			fmt.Println("json couldnt -> Score", err)
+			print(b)
+		}
+	}
+	print(s)
 	return s
 }
 
@@ -180,38 +206,6 @@ func initCSV(fn string, header []string) (*os.File, *csv.Writer) {
 	w.Write(header)
 	// defer w.Flush()
 	return f, w
-}
-
-func boundedParallelGet(urls []string, concurrencyLimit int) []concurrentResult {
-	semaphoreChan := make(chan struct{}, concurrencyLimit)
-	resultsChan := make(chan *concurrentResult)
-	defer func() {
-		close(semaphoreChan)
-		close(resultsChan)
-	}()
-	for i, url := range urls {
-		go func(i int, url string) {
-			semaphoreChan <- struct{}{}
-			res, err := http.Get(url)
-			result := &concurrentResult{i, *res, err}
-			resultsChan <- result
-			<-semaphoreChan
-
-		}(i, url)
-	}
-	var results []concurrentResult
-	for {
-		result := <-resultsChan
-		results = append(results, *result)
-		if len(results) == len(urls) {
-			break
-		}
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].index < results[j].index
-	})
-	return results
 }
 
 func addScores(rs map[int]Row, concurrencyLimit int) map[int]Row {
@@ -271,12 +265,8 @@ func addScore(r Row) (Row, error) {
 		fmt.Println("broke")
 	}
 
-	r.aPts, err = strconv.Atoi(s.LatestScore.Visitor)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	fmt.Println(err)
-	// }
-	r.hPts, err = strconv.Atoi(s.LatestScore.Home)
+	r.aPts, _ = strconv.Atoi(s.LatestScore.Visitor)
+	r.hPts, _ = strconv.Atoi(s.LatestScore.Home)
 	r.Status = s.GameStatus
 	r.lastMod = s.LastUpdated
 	return r, err
@@ -310,13 +300,13 @@ func rowToCSV(r Row) []string {
 }
 
 func compRows(prev map[int]Row, cur map[int]Row) map[int]Row {
-	to_write := make(map[int]Row)
-	for cur_id, r := range cur {
-		if !reflect.DeepEqual(r, prev[cur_id]) {
-			to_write[r.GameID] = r
+	toWrite := make(map[int]Row)
+	for id, r := range cur {
+		if !reflect.DeepEqual(r, prev[id]) {
+			toWrite[r.GameID] = r
 		}
 	}
-	return to_write
+	return toWrite
 }
 
 func rowsToCSVFormat(data map[int]Row) [][]string {
@@ -328,11 +318,11 @@ func rowsToCSVFormat(data map[int]Row) [][]string {
 	return recs
 }
 
-func loop_n(s string, n int, fn string) {
+func loopN(s string, n int, fn string) {
 	_, rowWriter := initCSV(fn, allHeaders)
 
 	for i := 1; i <= n; i++ {
-		rs := grabRows(lineRoot + s)
+		rs := getRows(lineRoot + s)
 		rowsToWrite := rowsToCSVFormat(rs)
 		rowWriter.WriteAll(rowsToWrite)
 	}
@@ -361,4 +351,65 @@ func parsePaths(ps []Path) Row {
 		}
 	}
 	return categories
+}
+
+func parseLines(b []byte) map[int]Line {
+	data := toJSON(b)
+	rs := make(map[int]Line)
+	// var events []Event
+	for _, ev := range data {
+		es := ev.Events
+		for _, e := range es {
+			r, nullRow := makeLine(e)
+			if nullRow == false {
+				rs[r.GameID] = r
+			}
+		}
+	}
+
+	return rs
+}
+
+func getRowsNoScore(s string) (map[int]Row, error) {
+	ret, err := req(lineRoot + s)
+	rs := parseLinesToRows(ret)
+	return rs, err
+}
+
+func parallelGetRows(sports []string, concurrencyLimit int) map[int]Row {
+	results := make(map[int]Row)
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+	resultsChan := make(chan *concurrentMapRowResult)
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+	for i, s := range sports {
+		go func(i int, s string) {
+			semaphoreChan <- struct{}{}
+			// rs := getRows(s)
+			rs, _ := getRowsNoScore(s)
+			result := &concurrentMapRowResult{i, s, rs}
+			resultsChan <- result
+			<-semaphoreChan
+
+		}(i, s)
+	}
+	for {
+		result := <-resultsChan
+		for _, res := range result.res {
+			results[res.GameID] = res
+		}
+		if len(results) == len(sports) {
+			break
+		}
+	}
+
+	return results
+}
+
+func separateConcurrent(sports []string, concurrencyLimit int) map[int]Row {
+	rs := parallelGetRows(sports, concurrencyLimit)
+	rs = addScores(rs, concurrencyLim)
+	return rs
 }
