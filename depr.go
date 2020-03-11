@@ -125,8 +125,7 @@ func makeScore(s Score) shortScore {
 func getScore(s string) (shortScore, error) {
 	ret, err := req(scoreRoot + s)
 	if err != nil {
-		fmt.Println("2")
-		log.Fatal(err)
+		fmt.Println("get score err", err)
 	}
 	data := scoreFromBytes(ret)
 	r := makeScore(data)

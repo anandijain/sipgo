@@ -138,7 +138,7 @@ func toJSON(b []byte) []Competition {
 			break
 		} else if err != nil {
 			fmt.Println("json couldnt -> []Competition")
-			log.Fatal(err)
+			// log.Fatal(err)
 		}
 	}
 	return c
@@ -149,11 +149,9 @@ func scoreFromBytes(b []byte) Score {
 	dec := json.NewDecoder(strings.NewReader(retString))
 	var s Score
 	if err := dec.Decode(&s); err == io.EOF {
-		fmt.Println("json couldnt -> Score")
-		log.Fatal(err)
+		fmt.Println("json couldnt -> Score", err)
 	} else if err != nil {
-		fmt.Println("json couldnt -> Score")
-		log.Fatal(err)
+		fmt.Println("json couldnt -> Score", err)
 	}
 	return s
 }
