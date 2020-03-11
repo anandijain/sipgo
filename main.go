@@ -107,9 +107,9 @@ func loopDB(name string) {
 	for {
 		diff := compRows(prev, cur)
 		fmt.Println(len(diff), "# of changes", time.Now())
-
+		
 		insertRows(db, diff, stmt)
-
+		
 		prev = cur
 		cur = getRows("")
 	}
@@ -118,31 +118,33 @@ func loopDB(name string) {
 func testInsertDB(name string) {
 	db := initCloudDB(name)
 	stmt, _ := db.Prepare(insertRowsQuery)
-
+	
 	rs := getRows("")
 	insertRows(db, rs, stmt)
 	db.Close()
 }
 
 func lineLooperz(s string) {
-	_, w := initCSV("lines.csv", lineHeaders)
-
+	_, w := initCSV("lines3.csv", lineHeaders)
+	
 	prev, _ := getLines("")
 	cur, _ := getLines("")
-
+	
 	for {
-		var diff map[int]Line
+		diff :=  make(map[int]Line)
 		for id, v := range cur {
 			if !reflect.DeepEqual(v, prev[id]) {
 				diff[id] = v
 			}
 		}
-		toWrite := linesToCSV(diff)
-		w.WriteAll(toWrite)
-
+		w.WriteAll(linesToCSV(diff))
+		fmt.Println(len(diff), "# of changes", time.Now())
+		
 		prev = cur
 		cur, _ = getLines("")
+		time.Sleep(3000)
 	}
+	
 }
 func main() {
 	// looperz("data.csv")
