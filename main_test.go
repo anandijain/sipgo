@@ -58,23 +58,23 @@ func parallelDiffs(sports []string) map[int]Row {
 	return diffs
 }
 
-	// t0 := time.Now()
-	// rs := separateConcurrent(supportedSports, 10)
-	// t1 := time.Now()
-	// fmt.Println("sepCon", len(rs), "# lines and scores in", t1.Sub(t0))
-	// t0 = time.Now()
-	// prs := parallelGetRows(supportedSports, 10)
-	// t1 = time.Now()
-	// fmt.Println("parGet in", t1.Sub(t0))
-	// for _, psport := range prs {
-	// 	fmt.Println("parGet", len(psport.res), "# lines and scores in", t1.Sub(t0))
-	// }
-	// t0 = time.Now()
-	// grs := make(map[int]Row)
-	// for _, s := range supportedSports {
-	// 	for id, r := range getRows(s) {
-	// 		grs[id] = r
-	// 	}
-	// }
-	// t1 = time.Now()
-	// fmt.Println("getRows", len(grs), "# lines and scores in", t1.Sub(t0))
+// t0 := time.Now()
+// rs := separateConcurrent(supportedSports, 10)
+// t1 := time.Now()
+// fmt.Println("sepCon", len(rs), "# lines and scores in", t1.Sub(t0))
+// t0 = time.Now()
+// prs := parallelGetRows(supportedSports, 10)
+// t1 = time.Now()
+// fmt.Println("parGet in", t1.Sub(t0))
+// for _, psport := range prs {
+// 	fmt.Println("parGet", len(psport.res), "# lines and scores in", t1.Sub(t0))
+// }
+// t0 = time.Now()
+// grs := make(map[int]Row)
+// for _, s := range supportedSports {
+// 	for id, r := range getRows(s) {
+// 		grs[id] = r
+// 	}
+// }
+// t1 = time.Now()
+// fmt.Println("getRows", len(grs), "# lines and scores in", t1.Sub(t0))
